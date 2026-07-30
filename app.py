@@ -45,13 +45,13 @@ from flowtest.storage import (
 
 init_db()
 
-# Install Playwright Chromium once per process (required on Streamlit Cloud)
+# Install Playwright Chromium once per process (required on Streamlit Cloud).
+# Never block app boot if install fails — UI must still load.
 try:
     from flowtest.browser_setup import ensure_playwright_chromium
 
     ensure_playwright_chromium()
-except Exception:
-    # Don't block the whole UI if browsers aren't needed yet (API-only use)
+except Exception as _pw_exc:  # noqa: F841
     pass
 
 st.set_page_config(

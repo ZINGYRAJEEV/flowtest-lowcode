@@ -1,0 +1,6 @@
+flowtest_data/
+monkey_artifacts/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/

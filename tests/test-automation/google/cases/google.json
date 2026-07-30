@@ -1,0 +1,330 @@
+{
+  "id": "tst_046e3f8e2a",
+  "name": "Google",
+  "description": "google",
+  "tags": [
+    "ui"
+  ],
+  "suite": "google",
+  "version": 8,
+  "steps": [
+    {
+      "id": "stp_7a96c6023c",
+      "type": "ui.goto",
+      "name": "Navigate to /am/XUI/",
+      "config": {
+        "url": "https://openam-horizonblue-use4-dev.id.forgerock.io/am/XUI/?realm=/alpha&authIndexType=service&authIndexValue=hzn-jrn-commercial-member-registration#/",
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_c35a54a036",
+      "type": "ui.wait",
+      "name": "Wait after navigate",
+      "config": {
+        "ms": 500
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_5d12c0438a",
+      "type": "ui.wait_for",
+      "name": "Wait for callback_3",
+      "config": {
+        "selector": "#floatingLabelInput57",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_cb90e7c11a",
+      "type": "ui.fill",
+      "name": "Fill callback_3",
+      "config": {
+        "selector": "#floatingLabelInput57",
+        "value": "memberId",
+        "clear": true,
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_86de08f344",
+      "type": "ui.wait_for",
+      "name": "Wait for callback_1",
+      "config": {
+        "selector": "#hzVerificationMethod",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_e73c3ecb6e",
+      "type": "ui.fill",
+      "name": "Fill callback_1",
+      "config": {
+        "selector": "#hzVerificationMethod",
+        "value": "memberId",
+        "clear": true,
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_1d27bc66e8",
+      "type": "ui.wait_for",
+      "name": "Wait for Enter your Horizon Member ID number or t",
+      "config": {
+        "selector": "#hz-pinfo-heading",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_be1e604537",
+      "type": "assert.text_contains",
+      "name": "Assert text \"Enter your Horizon Member ID number or the Po...\"",
+      "config": {
+        "selector": "#hz-pinfo-heading",
+        "text": "Enter your Horizon Member ID number or the Policyholder\u2019s Social Security Number, then your date of birth:"
+      },
+      "enabled": true,
+      "notes": "Recorded from text selection"
+    },
+    {
+      "id": "stp_062c981a16",
+      "type": "ui.wait_for",
+      "name": "Wait for callback_3",
+      "config": {
+        "selector": "#floatingLabelInput57",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_b85e2bd3a1",
+      "type": "ui.fill",
+      "name": "Fill callback_3",
+      "config": {
+        "selector": "#floatingLabelInput57",
+        "value": "memberId",
+        "clear": true,
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_58f8572439",
+      "type": "ui.wait_for",
+      "name": "Wait for Member ID Number",
+      "config": {
+        "selector": "div > form > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > label",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_fcc14098a3",
+      "type": "assert.text_contains",
+      "name": "Assert text \"Member ID Number\"",
+      "config": {
+        "selector": "body",
+        "text": "Member ID Number",
+        "timeout_ms": 30000,
+        "ignore_case": true
+      },
+      "enabled": true,
+      "notes": "Recorded from text selection"
+    },
+    {
+      "id": "stp_dd9730a0c5",
+      "type": "ui.wait_for",
+      "name": "Wait for callback_3",
+      "config": {
+        "selector": "#floatingLabelInput57",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_32e1edaf67",
+      "type": "ui.fill",
+      "name": "Fill callback_3",
+      "config": {
+        "selector": "#floatingLabelInput57",
+        "value": "memberId",
+        "clear": true,
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_7535bdabf0",
+      "type": "ui.wait_for",
+      "name": "Wait for Next",
+      "config": {
+        "selector": "div:nth-of-type(2) > div > form > div:nth-of-type(12) > div > button:nth-of-type(2)",
+        "timeout_ms": 30000,
+        "state": "visible"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_839aa10922",
+      "type": "ui.click",
+      "name": "Click Next",
+      "config": {
+        "selector": "div:nth-of-type(2) > div > form > div:nth-of-type(12) > div > button:nth-of-type(2)",
+        "text": "",
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_57a07d8fa7",
+      "type": "ui.wait_for",
+      "name": "Wait for callback_3",
+      "config": {
+        "selector": "#floatingLabelInput57",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_7aa229122d",
+      "type": "ui.fill",
+      "name": "Fill callback_3",
+      "config": {
+        "selector": "#floatingLabelInput57",
+        "value": "memberId",
+        "clear": true,
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_c27aa046e1",
+      "type": "ui.wait_for",
+      "name": "Wait for callback_4",
+      "config": {
+        "selector": "#floatingLabelInput107",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_c0a66ceb66",
+      "type": "ui.fill",
+      "name": "Fill callback_4",
+      "config": {
+        "selector": "#floatingLabelInput107",
+        "value": "memberId",
+        "clear": true,
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_0e7c0b1458",
+      "type": "ui.wait_for",
+      "name": "Wait for callback_2",
+      "config": {
+        "selector": "#hzVerificationMethod",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_e7c44e6d67",
+      "type": "ui.fill",
+      "name": "Fill callback_2",
+      "config": {
+        "selector": "#hzVerificationMethod",
+        "value": "memberId",
+        "clear": true,
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_552a91e14b",
+      "type": "ui.wait_for",
+      "name": "Wait for callback_4",
+      "config": {
+        "selector": "#floatingLabelInput107",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_2b4481fb7f",
+      "type": "ui.fill",
+      "name": "Fill callback_4",
+      "config": {
+        "selector": "#floatingLabelInput107",
+        "value": "memberId",
+        "clear": true,
+        "timeout_ms": 30000
+      },
+      "enabled": true,
+      "notes": "Recorded"
+    },
+    {
+      "id": "stp_86e1f4e4e5",
+      "type": "ui.wait_for",
+      "name": "Wait for Please enter the subscriber's member ID ",
+      "config": {
+        "selector": "section > div > div:nth-of-type(3) > div > div:nth-of-type(2) > div:nth-of-type(1)",
+        "timeout_ms": 30000,
+        "state": "attached"
+      },
+      "enabled": true,
+      "notes": "Auto-wait (recorded)"
+    },
+    {
+      "id": "stp_6bf62d7335",
+      "type": "assert.text_contains",
+      "name": "Assert text \"Please enter the subscriber's member ID number. Please enter your date of birth\"",
+      "config": {
+        "selector": "body",
+        "text": "Please enter the subscriber's member ID number. Please enter your date of birth.",
+        "timeout_ms": 30000,
+        "ignore_case": true
+      },
+      "enabled": true,
+      "notes": "Recorded from text selection"
+    }
+  ]
+}

@@ -1,0 +1,301 @@
+{
+  "format": "flowtest-suite/v1",
+  "exported_at": "2026-07-30T16:14:47Z",
+  "project_id": "prj_7bb3daba7c",
+  "project_name": "Test automation",
+  "suite": "homepage",
+  "environment_hint": "",
+  "tests": [
+    {
+      "id": "tst_1ba65b3a83",
+      "name": "googleHomepage",
+      "description": "homepage",
+      "tags": [
+        "ui"
+      ],
+      "suite": "homepage",
+      "version": 2,
+      "steps": [
+        {
+          "id": "stp_3a61a8e2e5",
+          "type": "ui.goto",
+          "name": "Navigate to /",
+          "config": {
+            "url": "{{BASE_URL}}"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_f993bb4bef",
+          "type": "ui.click",
+          "name": "Click Log in with email",
+          "config": {
+            "selector": "body > main > section:nth-of-type(1) > div:nth-of-type(5) > div > div > a:nth-of-type(3)",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_c0cd1f51cf",
+          "type": "ui.goto",
+          "name": "Navigate to /login",
+          "config": {
+            "url": "{{BASE_URL}}/login"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_81debffed8",
+          "type": "ui.fill",
+          "name": "Fill email",
+          "config": {
+            "selector": "#email",
+            "value": "zingy.rajeev@gmail.com",
+            "clear": true
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_466c258b1a",
+          "type": "ui.fill",
+          "name": "Fill password",
+          "config": {
+            "selector": "#password",
+            "value": "India123$",
+            "clear": true
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_dd26f1a591",
+          "type": "ui.click",
+          "name": "Click Log in",
+          "config": {
+            "selector": "div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > form > button",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_7c94c91662",
+          "type": "ui.goto",
+          "name": "Navigate to /dashboard",
+          "config": {
+            "url": "{{BASE_URL}}/dashboard"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_842d3b47a8",
+          "type": "ui.click",
+          "name": "Click DASHBOARD\n\nWelcome back, Simaran\n\nPlan: Premium\n\nM",
+          "config": {
+            "selector": "body > main > div > div:nth-of-type(1)",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_42f2cbc5fb",
+          "type": "ui.click",
+          "name": "Click Welcome back, Simaran",
+          "config": {
+            "selector": "body > main > div > div:nth-of-type(1) > div:nth-of-type(1) > h1",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_510c562f54",
+          "type": "ui.click",
+          "name": "Click button",
+          "config": {
+            "selector": "body > main > div > div:nth-of-type(3) > div > button",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_b7cb1564a3",
+          "type": "ui.goto",
+          "name": "Navigate to /dashboard",
+          "config": {
+            "url": "{{BASE_URL}}/dashboard"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_a2122782ab",
+          "type": "ui.click",
+          "name": "Click button",
+          "config": {
+            "selector": "body > main > div > div:nth-of-type(3) > div > button",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_d12b3263a0",
+          "type": "ui.goto",
+          "name": "Navigate to /dashboard",
+          "config": {
+            "url": "{{BASE_URL}}/dashboard"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_e34e27b0de",
+          "type": "ui.click",
+          "name": "Click Edit profile",
+          "config": {
+            "selector": "body > main > div > div:nth-of-type(1) > div:nth-of-type(2) > a:nth-of-type(4)",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_fbded1f932",
+          "type": "ui.goto",
+          "name": "Navigate to /profile/edit",
+          "config": {
+            "url": "{{BASE_URL}}/profile/edit"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_f10d2b75b6",
+          "type": "ui.click",
+          "name": "Click Set main",
+          "config": {
+            "selector": "div:nth-of-type(9) > div > div > div:nth-of-type(3) > div > button:nth-of-type(1)",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_4fe6ba752c",
+          "type": "ui.goto",
+          "name": "Navigate to /profile/edit",
+          "config": {
+            "url": "{{BASE_URL}}/profile/edit"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_7128157ad2",
+          "type": "ui.fill",
+          "name": "Fill Tell potential matches about yourself\u2026",
+          "config": {
+            "selector": "div > form > div:nth-of-type(1) > div > div:nth-of-type(7) > textarea",
+            "value": "i work in PWC",
+            "clear": true
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_6df54b468a",
+          "type": "ui.click",
+          "name": "Click Save profile",
+          "config": {
+            "selector": "body > main > div > form > div:nth-of-type(7) > button",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_fec8d30448",
+          "type": "ui.goto",
+          "name": "Navigate to /profile/edit",
+          "config": {
+            "url": "{{BASE_URL}}/profile/edit"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_3286728f42",
+          "type": "ui.click",
+          "name": "Click Connect Telegram",
+          "config": {
+            "selector": "form > div:nth-of-type(2) > div > div:nth-of-type(1) > div > a",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_6a44d385a6",
+          "type": "ui.click",
+          "name": "Click Save profile",
+          "config": {
+            "selector": "body > main > div > form > div:nth-of-type(7) > button",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_3838a67608",
+          "type": "ui.goto",
+          "name": "Navigate to /profile/edit",
+          "config": {
+            "url": "{{BASE_URL}}/profile/edit"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_644db18d34",
+          "type": "ui.click",
+          "name": "Click Save profile",
+          "config": {
+            "selector": "body > main > div > form > div:nth-of-type(7) > button",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_cbaa9a9392",
+          "type": "ui.goto",
+          "name": "Navigate to /profile/edit",
+          "config": {
+            "url": "{{BASE_URL}}/profile/edit"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_c6d6837163",
+          "type": "ui.click",
+          "name": "Click WhatsApp support +91 70047 92963",
+          "config": {
+            "selector": "body > a",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        }
+      ]
+    }
+  ]
+}

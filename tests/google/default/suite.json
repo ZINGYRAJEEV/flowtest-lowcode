@@ -1,0 +1,101 @@
+{
+  "format": "flowtest-suite/v1",
+  "exported_at": "2026-07-30T16:14:47Z",
+  "project_id": "prj_89304d5d07",
+  "project_name": "google",
+  "suite": "Default",
+  "environment_hint": "",
+  "tests": [
+    {
+      "id": "tst_ff7bd44ff3",
+      "name": "New test flow",
+      "description": "",
+      "tags": [
+        "ui"
+      ],
+      "suite": "Default",
+      "version": 1,
+      "steps": [
+        {
+          "id": "stp_70b9209edd",
+          "type": "ui.goto",
+          "name": "Navigate to /",
+          "config": {
+            "url": "{{BASE_URL}}"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_cdb2c716de",
+          "type": "ui.fill",
+          "name": "Fill Search",
+          "config": {
+            "selector": "#APjFqb",
+            "value": "",
+            "clear": true
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_ca2da9b059",
+          "type": "assert.text_contains",
+          "name": "Assert text \"Google offered in:\"",
+          "config": {
+            "selector": "#SIvCob",
+            "text": "Google offered in:"
+          },
+          "enabled": true,
+          "notes": "Recorded from text selection"
+        },
+        {
+          "id": "stp_8322af7b88",
+          "type": "assert.text_contains",
+          "name": "Assert text \"India\"",
+          "config": {
+            "selector": "body",
+            "text": "India",
+            "timeout_ms": 30000,
+            "ignore_case": true
+          },
+          "enabled": true,
+          "notes": "Recorded from text selection"
+        },
+        {
+          "id": "stp_36f1763106",
+          "type": "ui.fill",
+          "name": "Fill Search",
+          "config": {
+            "selector": "#APjFqb",
+            "value": "",
+            "clear": true
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_8f4938f2ff",
+          "type": "ui.click",
+          "name": "Click spiderman movie review",
+          "config": {
+            "selector": "li:nth-of-type(1) > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > span",
+            "text": ""
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        },
+        {
+          "id": "stp_4e623ed170",
+          "type": "ui.goto",
+          "name": "Navigate to /sorry/index",
+          "config": {
+            "url": "{{BASE_URL}}/sorry/index?continue=https://www.google.com/search%3Fq%3Dspiderman%2Bmovie%2Breview%26sca_esv%3D2c719d755bc25006%26source%3Dhp%26ei%3DsmlraqWAHaPI5_EP8e2nkAw%26iflsig%3DABILxe8AAAAAamt3wj_jjmIyOk2_2dZTsfBQWeSfVKdA%26gs_ss%3D1%26oq%3D%26gs_lp%3DEgdnd3Mtd2l6IgAqAggAMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCMgoQABgDGI8BGOoCSNExUABYAHABeACQAQCYAQCgAQCqAQC4AQHIAQCYAgGgAgioAgqYAwjxBQwuSRij0DPIkgcBMaAHALIHALgHAMIHAzItMcgHBoAIAQ%26sclient%3Dgws-wiz%26sei%3DxWlrav28D6ad4-EPrNivsQY&q=EhAkBQIBpBfodd0q3ckn6NCTGMXTrdMGIjBYB2uJeqzVgmwVAV6WynBqEuzsRSN2KxbPiUIA1C6FaBqTsx9BgUid-FvemfUFAJkyAVJaAUM"
+          },
+          "enabled": true,
+          "notes": "Recorded"
+        }
+      ]
+    }
+  ]
+}

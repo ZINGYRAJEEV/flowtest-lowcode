@@ -472,6 +472,34 @@ def require_login() -> bool:
 
 def page_dashboard():
     page_header("Dashboard", "Pass/fail trends, inventory, and recent activity.", "Overview")
+    try:
+        from flowtest.browser_setup import chromium_status, is_streamlit_cloud
+
+        if is_streamlit_cloud():
+            st.info(
+                "Running on Streamlit Cloud: UI tests run **headless**. "
+                "Record tests on your local machine, then run them here."
+            )
+            with st.expander("Browser / Playwright status"):
+                status = chromium_status()
+                if status["ok"]:
+                    st.success(f"Chromium OK — {status['browsers_path']}")
+                else:
+                    st.error(f"Chromium not ready: {status['detail']}")
+                    st.caption(f"Browsers path: `{status['browsers_path']}`")
+                    if st.button("Retry Playwright Chromium install"):
+                        from flowtest.browser_setup import ensure_playwright_chromium
+
+                        ensure_playwright_chromium.cache_clear()
+                        try:
+                            msg = ensure_playwright_chromium()
+                            st.success(msg)
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(str(exc))
+    except Exception:
+        pass
+
     stats = run_stats()
     a, b, c, d = st.columns(4)
     a.metric("Projects", stats["projects"])

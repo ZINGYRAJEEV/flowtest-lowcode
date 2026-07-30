@@ -631,7 +631,7 @@ def record_browser_session(
     """
     from playwright.sync_api import sync_playwright
 
-    from flowtest.browser_setup import can_record_headed, ensure_playwright_chromium
+    from flowtest.browser_setup import can_record_headed, ensure_playwright_chromium, launch_chromium
 
     if not can_record_headed():
         raise RuntimeError(
@@ -646,10 +646,7 @@ def record_browser_session(
     started = time.time()
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=False,
-            args=["--start-maximized"],
-        )
+        browser = launch_chromium(p, headless=False)
         context = browser.new_context(no_viewport=True, ignore_https_errors=True)
         page = context.new_page()
 

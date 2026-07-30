@@ -45,6 +45,15 @@ from flowtest.storage import (
 
 init_db()
 
+# Install Playwright Chromium once per process (required on Streamlit Cloud)
+try:
+    from flowtest.browser_setup import ensure_playwright_chromium
+
+    ensure_playwright_chromium()
+except Exception:
+    # Don't block the whole UI if browsers aren't needed yet (API-only use)
+    pass
+
 st.set_page_config(
     page_title="FlowTest",
     page_icon="◆",
@@ -684,12 +693,24 @@ def page_builder():
 
     # ----- Session recorder (FR-1) -----
     st.markdown("#### Record browser session")
-    st.caption(
-        "Opens a real browser. Click, type, and navigate as usual. "
-        "**To add an assertion:** highlight text on the page, then click **Assert selection** "
-        "in the recorder banner (or press **A**). Click **Finish recording** when done."
-    )
-    if can("edit"):
+    from flowtest.browser_setup import can_record_headed, is_streamlit_cloud
+
+    if not can_record_headed():
+        st.warning(
+            "**Recording is not available on Streamlit Cloud.** "
+            "Cloud apps have no desktop browser window for you to interact with.\n\n"
+            "1. Run locally: `streamlit run app.py` → record steps → **Save** the test  \n"
+            "2. Or export suite to `tests/` and push to Git  \n"
+            "3. On [Streamlit Cloud](https://lowcodetestautomation.streamlit.app/) you can "
+            "**run** saved tests headlessly (Playwright Chromium installs automatically)."
+        )
+    else:
+        st.caption(
+            "Opens a real browser. Click, type, and navigate as usual. "
+            "**To add an assertion:** highlight text on the page, then click **Assert selection** "
+            "in the recorder banner (or press **A**). Click **Finish recording** when done."
+        )
+    if can("edit") and can_record_headed():
         envs_for_rec = list_environments()
         rc1, rc2, rc3 = st.columns([2.2, 1.4, 1])
         with rc1:
@@ -774,7 +795,9 @@ def page_builder():
                             "If it does not, run `playwright install chromium`. "
                             "Click **Finish recording** in the dark banner when done."
                         )
-    else:
+    elif can("edit") and is_streamlit_cloud():
+        st.caption("Use the step library below to edit tests, or record on your local machine.")
+    elif not can("edit"):
         st.info("Editors and Admins can record sessions.")
 
     st.markdown("#### Step library")

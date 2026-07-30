@@ -631,6 +631,16 @@ def record_browser_session(
     """
     from playwright.sync_api import sync_playwright
 
+    from flowtest.browser_setup import can_record_headed, ensure_playwright_chromium
+
+    if not can_record_headed():
+        raise RuntimeError(
+            "Browser recording is not available on Streamlit Cloud (no desktop window). "
+            "Record locally with: streamlit run app.py — then push the tests/ folder "
+            "(or save the test) and re-run suites on the cloud in headless mode."
+        )
+
+    ensure_playwright_chromium()
     start_url = _normalize_url(start_url)
     events: list[dict[str, Any]] = []
     started = time.time()

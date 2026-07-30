@@ -163,7 +163,12 @@ def execute_test_case(
             from playwright.sync_api import sync_playwright
 
             pw = sync_playwright().start()
-            browser = pw.chromium.launch(headless=headless)
+            from flowtest.browser_setup import ensure_playwright_chromium, is_streamlit_cloud
+
+            ensure_playwright_chromium()
+            # Streamlit Cloud / servers: always headless
+            use_headless = True if is_streamlit_cloud() else headless
+            browser = pw.chromium.launch(headless=use_headless)
             context = browser.new_context(ignore_https_errors=True)
             page = context.new_page()
             page.set_default_timeout(DEFAULT_UI_TIMEOUT_MS)

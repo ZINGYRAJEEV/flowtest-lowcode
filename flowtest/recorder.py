@@ -258,12 +258,58 @@ _RECORDER_JS = r"""
       captureSelection();
       return;
     }
-    const el = t.closest('a,button,input,select,textarea,[role="button"],[onclick]') || t;
+
+    // Prefer option / menu / radio choices — order changes, text is stable
+    const optionish = t.closest(
+      '[role="option"], [role="menuitem"], [role="treeitem"], [role="radio"],' +
+      'li[role="option"], .dropdown-item, .multiselect__option, .vs__dropdown-option,' +
+      '.hz-option, [data-option], label'
+    );
+    let el = optionish || t.closest(
+      'a,button,input,select,textarea,[role="button"],[onclick],[role="tab"]'
+    ) || t;
+
     if (el.tagName && el.tagName.toLowerCase() === 'select') return;
+
+    // Radio: use the label text, not the input value
+    if (el.tagName && el.tagName.toLowerCase() === 'input' &&
+        (el.getAttribute('type') || '').toLowerCase() === 'radio') {
+      const lab = el.id
+        ? document.querySelector('label[for="' + el.id + '"]')
+        : el.closest('label');
+      if (lab) el = lab;
+    }
+
+    const visibleText = ((el.innerText || el.textContent || el.value || '') + '')
+      .replace(/\s+/g, ' ').trim().slice(0, 120);
+    const role = (el.getAttribute && el.getAttribute('role')) || '';
+    const isOptionLike = !!(
+      optionish ||
+      role === 'option' || role === 'menuitem' || role === 'radio' ||
+      (el.classList && (
+        el.classList.contains('dropdown-item') ||
+        el.classList.contains('multiselect__option')
+      )) ||
+      (el.tagName && el.tagName.toLowerCase() === 'label' && visibleText)
+    );
+
+    if (isOptionLike && visibleText && visibleText.length >= 1) {
+      emit({
+        type: 'click_by_text',
+        text: visibleText,
+        exact: role === 'option' || role === 'menuitem',
+        role: role || (optionish ? 'option' : ''),
+        selector: cssPath(el),
+        label: visibleText,
+        ts: Date.now(),
+      });
+      return;
+    }
+
     emit({
       type: 'click',
       selector: cssPath(el),
-      text: (el.innerText || el.value || '').trim().slice(0, 80),
+      text: visibleText.slice(0, 80),
       tag: (el.tagName || '').toLowerCase(),
       inputType: (el.getAttribute && el.getAttribute('type')) || '',
       label: labelOf(el),
@@ -276,11 +322,13 @@ _RECORDER_JS = r"""
     if (!el || !el.tagName) return;
     const tag = el.tagName.toLowerCase();
     if (tag === 'select') {
+      const optText = el.options && el.selectedIndex >= 0 ? el.options[el.selectedIndex].text : '';
       emit({
-        type: 'select',
+        type: 'select_by_text',
         selector: cssPath(el),
-        label: el.options && el.selectedIndex >= 0 ? el.options[el.selectedIndex].text : '',
-        index: el.selectedIndex,
+        text: (optText || '').trim(),
+        label: (optText || '').trim(),
+        exact: false,
         name: labelOf(el),
         ts: Date.now(),
       });
@@ -331,6 +379,14 @@ def _dedupe_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
             itype = (ev.get("inputType") or "").lower()
             # Skip clicks that are just focusing inputs (fill will follow)
             if tag in ("input", "textarea") and itype not in ("button", "submit", "checkbox", "radio"):
+                continue
+        if et == "click_by_text" and cleaned and cleaned[-1].get("type") == "click_by_text":
+            if cleaned[-1].get("text") == ev.get("text"):
+                cleaned[-1] = ev
+                continue
+        if et == "select_by_text" and cleaned and cleaned[-1].get("type") == "select_by_text":
+            if cleaned[-1].get("selector") == ev.get("selector"):
+                cleaned[-1] = ev
                 continue
         if et == "fill" and cleaned and cleaned[-1].get("type") == "fill":
             if cleaned[-1].get("selector") == ev.get("selector"):
@@ -407,15 +463,55 @@ def events_to_steps(events: list[dict[str, Any]], replace_base_url: str | None =
             selector = ev.get("selector") or ""
             text = (ev.get("text") or "").strip()
             label = ev.get("label") or text or selector
-            _auto_wait(selector, str(label), state="visible")
-            cfg: dict[str, Any] = {"selector": selector, "text": "", "timeout_ms": 30000}
+            # If the click carried meaningful text and no useful selector, prefer by-text
+            if text and (not selector or "nth-of-type" in selector):
+                steps.append(
+                    TestStep(
+                        id=new_id("stp_"),
+                        type="ui.click_by_text",
+                        name=f'Click text "{text[:40]}"',
+                        config={
+                            "text": text,
+                            "exact": False,
+                            "role": "",
+                            "within": "",
+                            "timeout_ms": 30000,
+                        },
+                        notes="Recorded (by text)",
+                    )
+                )
+            else:
+                _auto_wait(selector, str(label), state="visible")
+                cfg: dict[str, Any] = {"selector": selector, "text": "", "timeout_ms": 30000}
+                steps.append(
+                    TestStep(
+                        id=new_id("stp_"),
+                        type="ui.click",
+                        name=f"Click {label[:50]}",
+                        config=cfg,
+                        notes="Recorded",
+                    )
+                )
+        elif et == "click_by_text":
+            text = (ev.get("text") or ev.get("label") or "").strip()
+            if not text:
+                continue
+            role = (ev.get("role") or "option") if ev.get("role") is not None else "option"
+            if not role:
+                role = "option"
             steps.append(
                 TestStep(
                     id=new_id("stp_"),
-                    type="ui.click",
-                    name=f"Click {label[:50]}",
-                    config=cfg,
-                    notes="Recorded",
+                    type="ui.click_by_text",
+                    name=f'Click / select "{text[:40]}"',
+                    config={
+                        "text": text,
+                        "exact": bool(ev.get("exact", False)),
+                        "role": role,
+                        "within": "",
+                        "timeout_ms": 30000,
+                    },
+                    notes="Recorded (by text — order-independent)",
                 )
             )
         elif et == "fill":
@@ -442,21 +538,57 @@ def events_to_steps(events: list[dict[str, Any]], replace_base_url: str | None =
                     notes="Recorded",
                 )
             )
-        elif et == "select":
+        elif et == "select_by_text":
+            text = (ev.get("text") or ev.get("label") or "").strip()
             selector = ev.get("selector") or ""
-            label = ev.get("label") or ""
-            index = int(ev.get("index") or 0)
-            name = ev.get("name") or selector
-            _auto_wait(selector, str(name), state="attached")
+            if not text:
+                continue
+            name = ev.get("name") or text
             steps.append(
                 TestStep(
                     id=new_id("stp_"),
-                    type="ui.select",
-                    name=f"Select on {str(name)[:40]}",
-                    config={"selector": selector, "label": label, "index": index, "timeout_ms": 30000},
-                    notes="Recorded",
+                    type="ui.select_by_text",
+                    name=f'Select "{text[:40]}"',
+                    config={
+                        "text": text,
+                        "selector": selector,
+                        "exact": bool(ev.get("exact", False)),
+                        "timeout_ms": 30000,
+                    },
+                    notes="Recorded (by text — order-independent)",
                 )
             )
+        elif et == "select":
+            selector = ev.get("selector") or ""
+            label = (ev.get("label") or ev.get("text") or "").strip()
+            index = int(ev.get("index") or 0)
+            name = ev.get("name") or selector
+            if label:
+                steps.append(
+                    TestStep(
+                        id=new_id("stp_"),
+                        type="ui.select_by_text",
+                        name=f'Select "{label[:40]}"',
+                        config={
+                            "text": label,
+                            "selector": selector,
+                            "exact": False,
+                            "timeout_ms": 30000,
+                        },
+                        notes="Recorded (by text — order-independent)",
+                    )
+                )
+            else:
+                _auto_wait(selector, str(name), state="attached")
+                steps.append(
+                    TestStep(
+                        id=new_id("stp_"),
+                        type="ui.select",
+                        name=f"Select on {str(name)[:40]}",
+                        config={"selector": selector, "label": label, "index": index, "timeout_ms": 30000},
+                        notes="Recorded",
+                    )
+                )
         elif et == "assert_text":
             text = (ev.get("text") or "").strip()
             selector = (ev.get("selector") or "body").strip() or "body"

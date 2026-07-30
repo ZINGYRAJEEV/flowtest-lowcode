@@ -64,8 +64,10 @@ from flowtest.ui_actions import (
     settle_page as _settle_page,
     smart_assert_text as _smart_assert_text,
     smart_click as _smart_click,
+    smart_click_by_text as _smart_click_by_text,
     smart_fill as _smart_fill,
     smart_select as _smart_select,
+    smart_select_by_text as _smart_select_by_text,
     smart_wait_for as _smart_wait_for,
     ui_timeout as _ui_timeout,
 )
@@ -239,6 +241,19 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
             )
             page.wait_for_timeout(150)
 
+        elif stype == "ui.click_by_text":
+            if page is None:
+                raise RuntimeError("Browser not available")
+            detail = _smart_click_by_text(
+                page,
+                text=str(cfg.get("text") or ""),
+                exact=bool(cfg.get("exact", False)),
+                role=str(cfg.get("role") or ""),
+                within=str(cfg.get("within") or ""),
+                timeout=_ui_timeout(cfg),
+            )
+            page.wait_for_timeout(150)
+
         elif stype == "ui.fill":
             if page is None:
                 raise RuntimeError("Browser not available")
@@ -260,16 +275,38 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
                 raise RuntimeError("Browser not available")
             selector = cfg.get("selector") or ""
             label = cfg.get("label") or ""
-            idx = int(cfg.get("index", 1))
-            detail = _smart_select(
+            # Prefer label over index when both present (order-safe)
+            if label:
+                detail = _smart_select_by_text(
+                    page,
+                    text=str(label),
+                    selector=selector,
+                    exact=False,
+                    timeout=_ui_timeout(cfg),
+                )
+            else:
+                idx = int(cfg.get("index", 1))
+                detail = _smart_select(
+                    page,
+                    selector=selector,
+                    label=label,
+                    index=idx,
+                    timeout=_ui_timeout(cfg),
+                    cfg=cfg,
+                    step_name=step.name or "",
+                )
+
+        elif stype == "ui.select_by_text":
+            if page is None:
+                raise RuntimeError("Browser not available")
+            detail = _smart_select_by_text(
                 page,
-                selector=selector,
-                label=label,
-                index=idx,
+                text=str(cfg.get("text") or cfg.get("label") or ""),
+                selector=str(cfg.get("selector") or ""),
+                exact=bool(cfg.get("exact", False)),
                 timeout=_ui_timeout(cfg),
-                cfg=cfg,
-                step_name=step.name or "",
             )
+            page.wait_for_timeout(150)
 
         elif stype == "ui.wait":
             ms = int(cfg.get("ms", 1000))

@@ -295,11 +295,157 @@ def smart_click(
             loc.click(timeout=timeout, force=True)
         return f"Clicked {matched}"
     if text:
-        loc = page.get_by_text(text, exact=False).first
-        loc.wait_for(state="visible", timeout=timeout)
-        loc.click(timeout=timeout)
-        return f'Clicked text "{text}"'
+        return smart_click_by_text(page, text=text, timeout=timeout, exact=False)
     raise RuntimeError("Provide selector or text")
+
+
+def smart_click_by_text(
+    page,
+    text: str,
+    exact: bool = False,
+    role: str = "",
+    within: str = "",
+    timeout: int = DEFAULT_UI_TIMEOUT_MS,
+) -> str:
+    """
+    Click a control by visible text — preferred for dropdown options whose order changes.
+    Tries option/radio/menuitem roles, then plain text.
+    """
+    needle = (text or "").strip()
+    if not needle:
+        raise RuntimeError("Text is required for click-by-text")
+
+    root = page.locator(within).first if within else page
+    if within:
+        root.wait_for(state="attached", timeout=timeout)
+
+    def _click_loc(loc, how: str) -> str:
+        loc.first.wait_for(state="visible", timeout=timeout)
+        try:
+            loc.first.click(timeout=timeout)
+        except Exception:
+            loc.first.click(timeout=timeout, force=True)
+        settle_page(page, ms=250)
+        return f'Clicked by text "{needle}" ({how})'
+
+    roles: list[str] = []
+    if role:
+        roles.append(role)
+    for r in ("option", "radio", "menuitem", "button", "link", "checkbox", "tab"):
+        if r not in roles:
+            roles.append(r)
+
+    # Role-based (stable vs list order)
+    for r in roles:
+        try:
+            if within:
+                loc = root.get_by_role(r, name=needle, exact=exact)
+            else:
+                loc = page.get_by_role(r, name=needle, exact=exact)
+            if loc.count() > 0:
+                return _click_loc(loc, f"role={r}")
+        except Exception:
+            continue
+
+    # Label (radios / checkboxes wrapped in label)
+    try:
+        loc = (root if within else page).get_by_label(needle, exact=exact)
+        if loc.count() > 0:
+            return _click_loc(loc, "label")
+    except Exception:
+        pass
+
+    # Plain visible text
+    try:
+        loc = (root if within else page).get_by_text(needle, exact=exact)
+        if loc.count() > 0:
+            return _click_loc(loc, "text")
+    except Exception:
+        pass
+
+    # Regex contains (when exact=False and whitespace differs)
+    if not exact:
+        try:
+            pattern = re.compile(re.escape(needle), re.I)
+            loc = (root if within else page).get_by_text(pattern)
+            if loc.count() > 0:
+                return _click_loc(loc, "text~")
+        except Exception:
+            pass
+
+    raise RuntimeError(f'No visible control found for text "{needle}"')
+
+
+def smart_select_by_text(
+    page,
+    text: str,
+    selector: str = "",
+    exact: bool = False,
+    timeout: int = DEFAULT_UI_TIMEOUT_MS,
+) -> str:
+    """
+    Select a dropdown option by visible text.
+    Works for native <select> and custom listboxes (click option by text).
+    """
+    needle = (text or "").strip()
+    if not needle:
+        raise RuntimeError("Option text is required")
+
+    # Native <select>
+    if selector:
+        try:
+            loc, matched = prepare_locator(
+                page, selector, timeout, require_visible=False, cfg={"name": ""}, step_name=""
+            )
+            tag = ""
+            try:
+                tag = (loc.evaluate("el => el.tagName") or "").lower()
+            except Exception:
+                pass
+            if tag == "select":
+                try:
+                    if exact:
+                        loc.select_option(label=needle, timeout=timeout)
+                    else:
+                        # Match option whose label contains needle
+                        options = loc.locator("option")
+                        count = options.count()
+                        chosen = None
+                        for i in range(count):
+                            lab = (options.nth(i).inner_text() or "").strip()
+                            if exact and lab == needle:
+                                chosen = lab
+                                break
+                            if not exact and needle.lower() in lab.lower():
+                                chosen = lab
+                                break
+                        if chosen is None:
+                            loc.select_option(label=needle, timeout=timeout)
+                        else:
+                            loc.select_option(label=chosen, timeout=timeout)
+                    settle_page(page, ms=250)
+                    return f'Selected "{needle}" on {matched}'
+                except Exception:
+                    pass
+            # Open custom dropdown bound to this control, then click option text
+            try:
+                loc.click(timeout=min(5000, timeout), force=True)
+                page.wait_for_timeout(200)
+            except Exception:
+                pass
+
+        except Exception:
+            pass
+
+    # Custom / listbox option by text (order-independent)
+    return smart_click_by_text(
+        page,
+        text=needle,
+        exact=exact,
+        role="option",
+        within="",
+        timeout=timeout,
+    )
 
 
 def smart_fill(

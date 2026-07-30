@@ -1,5 +1,8 @@
 """
 Ensure Playwright Chromium is installed and can launch (Streamlit Cloud friendly).
+
+IMPORTANT: Never call sync_playwright() inside the Streamlit process on Windows —
+use subprocess jobs (browser_probe_job / executor_job) instead.
 """
 
 from __future__ import annotations
@@ -67,7 +70,7 @@ def chromium_launch_args(headed: bool = False) -> list[str]:
 
 
 def launch_chromium(playwright_instance, headless: bool = True):
-    """Launch Chromium with Cloud-safe defaults."""
+    """Launch Chromium with Cloud-safe defaults. Call only from a subprocess, not Streamlit."""
     browsers_path()
     return playwright_instance.chromium.launch(
         headless=headless,
@@ -76,19 +79,25 @@ def launch_chromium(playwright_instance, headless: bool = True):
 
 
 def _probe_chromium() -> tuple[bool, str]:
-    """Try launching Chromium; return (ok, detail)."""
+    """Probe Chromium in a child process (Streamlit-safe)."""
     browsers_path()
+    env = os.environ.copy()
+    env["PLAYWRIGHT_BROWSERS_PATH"] = browsers_path()
     try:
-        from playwright.sync_api import sync_playwright
-
-        with sync_playwright() as p:
-            browser = launch_chromium(p, headless=True)
-            page = browser.new_page()
-            page.set_content("<html><body>ok</body></html>")
-            browser.close()
-        return True, "ok"
+        proc = subprocess.run(
+            [sys.executable, "-m", "flowtest.browser_probe_job"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        )
     except Exception as exc:
         return False, f"{type(exc).__name__}: {exc}"
+    if proc.returncode == 0 and "OK" in (proc.stdout or ""):
+        return True, "ok"
+    detail = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()
+    return False, detail[-600:] or f"probe exit {proc.returncode}"
 
 
 def _run_playwright_install() -> str:
@@ -112,8 +121,7 @@ def _run_playwright_install() -> str:
 @lru_cache(maxsize=1)
 def ensure_playwright_chromium() -> str:
     """
-    Install Playwright Chromium if needed and verify it launches.
-    Raises RuntimeError with the underlying Playwright error when it cannot run.
+    Install Playwright Chromium if needed and verify it launches (via subprocess).
     """
     ok, detail = _probe_chromium()
     if ok:
@@ -131,20 +139,17 @@ def ensure_playwright_chromium() -> str:
     if ok2:
         return "installed"
 
-    # Clear cached failure if we ever change to soft-fail later
     raise RuntimeError(
-        "Chromium installed but still cannot launch (common on Streamlit Cloud without "
-        "sandbox flags / system libs).\n"
+        "Chromium installed but still cannot launch.\n"
         f"Probe error: {detail2}\n"
         f"Earlier probe: {detail}\n"
         f"Browsers path: {browsers_path()}\n"
-        "Confirm packages.txt is in the repo root, then Reboot the app. "
-        "If apt install failed in Cloud logs, share those lines."
+        "On Streamlit Cloud: confirm packages.txt is in the repo root, then Reboot the app."
     )
 
 
 def chromium_status() -> dict[str, Any]:
-    """Non-raising status for UI diagnostics."""
+    """Non-raising status for UI diagnostics (subprocess probe)."""
     ok, detail = _probe_chromium()
     return {
         "ok": ok,

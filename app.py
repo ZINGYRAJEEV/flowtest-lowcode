@@ -45,15 +45,6 @@ from flowtest.storage import (
 
 init_db()
 
-# Install Playwright Chromium once per process (required on Streamlit Cloud).
-# Never block app boot if install fails — UI must still load.
-try:
-    from flowtest.browser_setup import ensure_playwright_chromium
-
-    ensure_playwright_chromium()
-except Exception as _pw_exc:  # noqa: F841
-    pass
-
 st.set_page_config(
     page_title="FlowTest",
     page_icon="◆",
@@ -61,343 +52,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown(
-    """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap');
+def _inject_styles() -> None:
+    from pathlib import Path
 
-:root {
-  --ft-bg: #fffcfb;
-  --ft-bg-soft: #f7f4f2;
-  --ft-bg-muted: #f3eeea;
-  --ft-bg-blush: #fff8f6;
-  --ft-ink: #241e1b;
-  --ft-muted: #756055;
-  --ft-line: rgba(36, 30, 27, 0.10);
-  --ft-accent: #f83b66;
-  --ft-accent-soft: #ffc6d3;
-  --ft-accent-mid: #ff9db3;
-  --ft-success: #1ebe57;
-  --ft-shadow: 0 12px 40px -16px rgba(36, 30, 27, 0.18);
-  --ft-shadow-lg: 0 20px 50px -20px rgba(36, 30, 27, 0.22);
-  --ft-radius: 16px;
-}
+    css_path = Path(__file__).resolve().parent / ".streamlit" / "flowtest.css"
+    try:
+        css = css_path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    st.markdown(css if css.lstrip().startswith("<style") else f"<style>{css}</style>", unsafe_allow_html=True)
 
-/* Fonts — scoped; do NOT style all label/span/div (breaks Streamlit expanders) */
-.stApp, .stApp p, .stApp .stMarkdown, .block-container {
-  font-family: 'DM Sans', system-ui, sans-serif;
-}
 
-.stApp {
-  background:
-    radial-gradient(1200px 500px at 10% -10%, rgba(248, 59, 102, 0.08), transparent 55%),
-    radial-gradient(900px 420px at 100% 0%, rgba(255, 198, 211, 0.35), transparent 50%),
-    linear-gradient(180deg, #fffcfb 0%, #f7f4f2 100%) !important;
-  color: var(--ft-ink);
-}
+_inject_styles()
 
-/* Hide default chrome noise */
-#MainMenu { visibility: hidden; }
-footer { visibility: hidden; }
-header[data-testid="stHeader"] { background: transparent; }
-
-.block-container {
-  padding-top: 1.5rem !important;
-  padding-bottom: 3rem !important;
-  max-width: 1180px;
-  position: relative;
-  z-index: 1;
-}
-
-/* Brand / page headers */
-.ft-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
-}
-.ft-mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: linear-gradient(145deg, #f83b66 0%, #ff9db3 100%);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-family: 'Playfair Display', Georgia, serif !important;
-  font-weight: 700;
-  font-size: 1.15rem;
-  box-shadow: var(--ft-shadow);
-}
-.hero-title {
-  font-family: 'Playfair Display', Georgia, serif !important;
-  font-size: clamp(1.85rem, 3vw, 2.45rem);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  color: var(--ft-ink);
-  margin: 0 0 0.45rem 0;
-}
-.hero-sub {
-  font-size: 1.02rem;
-  color: var(--ft-muted);
-  margin: 0 0 1.5rem 0;
-  max-width: 42rem;
-  line-height: 1.55;
-}
-.ft-kicker {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ft-accent);
-  margin-bottom: 0.35rem;
-}
-
-/* Cards / panels */
-.ft-card {
-  background: rgba(255, 252, 251, 0.92);
-  border: 1px solid var(--ft-line);
-  border-radius: var(--ft-radius);
-  padding: 1.25rem 1.35rem;
-  box-shadow: var(--ft-shadow);
-  backdrop-filter: blur(8px);
-}
-.ft-panel {
-  background: linear-gradient(180deg, #fffcfb 0%, #fff8f6 100%);
-  border: 1px solid var(--ft-line);
-  border-radius: var(--ft-radius);
-  padding: 1.5rem;
-  box-shadow: var(--ft-shadow);
-}
-
-/* Metric polish */
-div[data-testid="stMetric"] {
-  background: #fffcfb;
-  border: 1px solid var(--ft-line);
-  border-radius: 14px;
-  padding: 0.9rem 1rem;
-  box-shadow: 0 1px 2px rgba(36,30,27,0.04);
-}
-div[data-testid="stMetric"] label { color: var(--ft-muted) !important; }
-div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-  font-family: 'Playfair Display', Georgia, serif !important;
-  color: var(--ft-ink) !important;
-}
-
-/* Sidebar — warm dark; contain overflow so nav text never bleeds into main */
-section[data-testid="stSidebar"],
-div[data-testid="stSidebar"] {
-  background:
-    radial-gradient(600px 280px at 20% 0%, rgba(248, 59, 102, 0.22), transparent 60%),
-    linear-gradient(180deg, #241e1b 0%, #3a2f2a 100%) !important;
-  border-right: 1px solid rgba(255,255,255,0.06);
-  overflow-x: hidden !important;
-  z-index: 100 !important;
-}
-section[data-testid="stSidebar"] > div {
-  overflow-x: hidden !important;
-}
-section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
-section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] span,
-section[data-testid="stSidebar"] .stCaption,
-section[data-testid="stSidebar"] label {
-  color: #f3eeea !important;
-}
-section[data-testid="stSidebar"] div[role="radiogroup"] {
-  overflow: hidden !important;
-  width: 100% !important;
-}
-section[data-testid="stSidebar"] div[role="radiogroup"] label {
-  padding: 0.45rem 0.65rem !important;
-  border-radius: 10px !important;
-  margin-bottom: 0.15rem !important;
-  overflow: hidden !important;
-  white-space: nowrap !important;
-  text-overflow: ellipsis !important;
-  max-width: 100% !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  position: relative !important;
-}
-section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
-  background: rgba(255,255,255,0.06);
-}
-section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
-  background: rgba(248, 59, 102, 0.22) !important;
-  box-shadow: inset 3px 0 0 #f83b66;
-}
-
-div[data-testid="stAppViewContainer"] > .main {
-  position: relative;
-  z-index: 1;
-  isolation: isolate;
-}
-
-/* Buttons */
-.stButton > button {
-  border-radius: 999px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.01em;
-  border: 1px solid transparent !important;
-  transition: transform .15s ease, box-shadow .15s ease, background .15s ease !important;
-}
-.stButton > button[kind="primary"],
-.stButton > button[data-testid="baseButton-primary"] {
-  background: linear-gradient(135deg, #f83b66 0%, #ff6b8a 100%) !important;
-  color: #fff !important;
-  box-shadow: 0 10px 24px -12px rgba(248, 59, 102, 0.7) !important;
-}
-.stButton > button[kind="primary"]:hover,
-.stButton > button[data-testid="baseButton-primary"]:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px -12px rgba(248, 59, 102, 0.85) !important;
-}
-.stButton > button[kind="secondary"],
-.stButton > button:not([kind="primary"]) {
-  background: #fffcfb !important;
-  color: var(--ft-ink) !important;
-  border: 1px solid var(--ft-line) !important;
-}
-div[data-testid="stSidebar"] .stButton > button {
-  background: rgba(255,255,255,0.08) !important;
-  color: #fffcfb !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-}
-
-/* Inputs */
-.stTextInput input, .stTextArea textarea, .stSelectbox [data-baseweb="select"] > div,
-.stNumberInput input, .stMultiSelect [data-baseweb="select"] > div {
-  border-radius: 12px !important;
-  border-color: var(--ft-line) !important;
-  background: #fffcfb !important;
-}
-.stTextInput input:focus, .stTextArea textarea:focus {
-  border-color: var(--ft-accent) !important;
-  box-shadow: 0 0 0 3px rgba(248, 59, 102, 0.15) !important;
-}
-
-/* Tabs */
-.stTabs [data-baseweb="tab-list"] {
-  gap: 0.35rem;
-  background: var(--ft-bg-muted);
-  padding: 0.35rem;
-  border-radius: 999px;
-}
-.stTabs [data-baseweb="tab"] {
-  border-radius: 999px !important;
-  padding: 0.45rem 1rem !important;
-  font-weight: 600;
-  color: var(--ft-muted);
-}
-.stTabs [aria-selected="true"] {
-  background: #fffcfb !important;
-  color: var(--ft-ink) !important;
-  box-shadow: 0 1px 3px rgba(36,30,27,0.08);
-}
-
-/* Expanders — prevent ghost/overlapping label text */
-div[data-testid="stExpander"] {
-  background: #fffcfb !important;
-  border: 1px solid var(--ft-line) !important;
-  border-radius: 14px !important;
-  margin-bottom: 0.55rem !important;
-  overflow: hidden !important;
-  position: relative !important;
-  z-index: 1 !important;
-  isolation: isolate;
-  box-shadow: 0 1px 2px rgba(36,30,27,0.04);
-}
-div[data-testid="stExpander"] details,
-div[data-testid="stExpander"] summary {
-  position: relative !important;
-  overflow: hidden !important;
-  background: #fffcfb !important;
-}
-div[data-testid="stExpander"] summary p,
-div[data-testid="stExpander"] summary span {
-  position: static !important;
-  color: var(--ft-ink) !important;
-  background: transparent !important;
-}
-div[data-testid="stAlert"] {
-  border-radius: 14px !important;
-}
-
-/* Dataframes */
-div[data-testid="stDataFrame"] {
-  border: 1px solid var(--ft-line);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: var(--ft-shadow);
-}
-
-/* Login hero */
-.ft-login-wrap {
-  display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 1.5rem;
-  align-items: stretch;
-  margin-top: 1rem;
-}
-@media (max-width: 900px) {
-  .ft-login-wrap { grid-template-columns: 1fr; }
-}
-.ft-login-hero {
-  background:
-    linear-gradient(160deg, rgba(248,59,102,0.12), transparent 45%),
-    linear-gradient(180deg, #241e1b 0%, #3a2f2a 100%);
-  color: #fffcfb;
-  border-radius: 22px;
-  padding: 2.25rem 2rem;
-  min-height: 420px;
-  box-shadow: var(--ft-shadow-lg);
-  position: relative;
-  overflow: hidden;
-}
-.ft-login-hero h1 {
-  font-family: 'Playfair Display', Georgia, serif !important;
-  font-size: 2.4rem;
-  line-height: 1.15;
-  margin: 0.6rem 0 0.75rem;
-  color: #fffcfb !important;
-}
-.ft-login-hero p { color: rgba(255,252,251,0.78); font-size: 1.05rem; line-height: 1.55; }
-.ft-login-hero ul { margin: 1.5rem 0 0; padding-left: 1.1rem; color: rgba(255,252,251,0.85); }
-.ft-login-hero li { margin-bottom: 0.45rem; }
-.ft-pill {
-  display: inline-block;
-  padding: 0.28rem 0.7rem;
-  border-radius: 999px;
-  background: rgba(248,59,102,0.2);
-  color: #ffc6d3;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.ft-login-form {
-  background: #fffcfb;
-  border: 1px solid var(--ft-line);
-  border-radius: 22px;
-  padding: 1.75rem 1.5rem;
-  box-shadow: var(--ft-shadow);
-}
-.ft-section-label {
-  font-family: 'Playfair Display', Georgia, serif !important;
-  font-size: 1.15rem;
-  color: var(--ft-ink);
-  margin: 0.25rem 0 0.75rem;
-}
-.ft-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--ft-line), transparent);
-  margin: 1.25rem 0;
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
 
 # ---------- Auth helpers ----------
 
@@ -473,7 +140,7 @@ def require_login() -> bool:
 def page_dashboard():
     page_header("Dashboard", "Pass/fail trends, inventory, and recent activity.", "Overview")
     try:
-        from flowtest.browser_setup import chromium_status, is_streamlit_cloud
+        from flowtest.browser_setup import is_streamlit_cloud
 
         if is_streamlit_cloud():
             st.info(
@@ -481,22 +148,17 @@ def page_dashboard():
                 "Record tests on your local machine, then run them here."
             )
             with st.expander("Browser / Playwright status"):
-                status = chromium_status()
-                if status["ok"]:
-                    st.success(f"Chromium OK — {status['browsers_path']}")
-                else:
-                    st.error(f"Chromium not ready: {status['detail']}")
-                    st.caption(f"Browsers path: `{status['browsers_path']}`")
-                    if st.button("Retry Playwright Chromium install"):
-                        from flowtest.browser_setup import ensure_playwright_chromium
+                st.caption("Click check only when needed — probing launches Chromium in a subprocess.")
+                if st.button("Check / install Chromium"):
+                    from flowtest.browser_setup import chromium_status, ensure_playwright_chromium
 
-                        ensure_playwright_chromium.cache_clear()
-                        try:
-                            msg = ensure_playwright_chromium()
-                            st.success(msg)
-                            st.rerun()
-                        except Exception as exc:
-                            st.error(str(exc))
+                    ensure_playwright_chromium.cache_clear()
+                    try:
+                        msg = ensure_playwright_chromium()
+                        st.success(f"Chromium {msg}")
+                    except Exception as exc:
+                        st.error(str(exc))
+                    st.json(chromium_status())
     except Exception:
         pass
 

@@ -1,5 +1,3 @@
-# Minimal Playwright/Chromium libs for Debian (Streamlit Cloud).
-# Keep this short — large stacks (mesa/llvm) slow boot a lot.
 libnss3
 libnspr4
 libatk1.0-0

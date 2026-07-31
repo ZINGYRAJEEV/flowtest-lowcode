@@ -1,3 +1,5 @@
+# Pin Python via runtime.txt (python-3.11). Streamlit Cloud's default 3.14
+# cannot build greenlet (Playwright dependency) or pandas wheels reliably.
 streamlit>=1.32.0,<1.46
 pandas>=2.0.0,<2.3
 numpy>=1.24.0,<2.1

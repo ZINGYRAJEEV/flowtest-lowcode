@@ -381,25 +381,96 @@ def page_builder():
             ]
         test.steps = st.session_state.draft_steps
 
-    # ----- Session recorder (FR-1) -----
+    # ----- Session recorder (FR-1) + Chrome extension import (Cloud) -----
     st.markdown("#### Record browser session")
     from flowtest.browser_setup import can_record_headed, is_streamlit_cloud
+    from flowtest.recording_import import parse_recording_text
 
     if not can_record_headed():
-        st.warning(
-            "**Recording is not available on Streamlit Cloud.** "
-            "Cloud apps have no desktop browser window for you to interact with.\n\n"
-            "1. Run locally: `streamlit run app.py` → record steps → **Save** the test  \n"
-            "2. Or export suite to `tests/` and push to Git  \n"
-            "3. On [Streamlit Cloud](https://lowcodetestautomation.streamlit.app/) you can "
-            "**run** saved tests headlessly (Playwright Chromium installs automatically)."
+        st.info(
+            "**Streamlit Cloud has no desktop browser window**, so headed recording is off here.\n\n"
+            "Use the **FlowTest Chrome extension** on your PC → Copy/Download JSON → "
+            "**Import Chrome recording** below → Save → Run headlessly on Cloud.\n\n"
+            "Extension folder in this repo: `chrome-extension/` "
+            "(Chrome → Extensions → Developer mode → Load unpacked)."
         )
     else:
         st.caption(
             "Opens a real browser. Click, type, and navigate as usual. "
             "**To add an assertion:** highlight text on the page, then click **Assert selection** "
-            "in the recorder banner (or press **A**). Click **Finish recording** when done."
+            "in the recorder banner (or press **A**). Click **Finish recording** when done. "
+            "On Cloud, use the Chrome extension + import instead."
         )
+
+    if can("edit"):
+        with st.expander("Import Chrome recording (works on Streamlit Cloud)", expanded=is_streamlit_cloud()):
+            st.caption(
+                "Record with the FlowTest Chrome extension, then paste the JSON or upload the file."
+            )
+            envs_for_imp = list_environments()
+            ic1, ic2 = st.columns([2, 1])
+            with ic1:
+                import_paste = st.text_area(
+                    "Paste recording JSON",
+                    height=140,
+                    key="chrome_rec_paste",
+                    placeholder='{"source":"chrome-extension","steps":[...]}',
+                )
+                import_file = st.file_uploader(
+                    "Or upload .json",
+                    type=["json"],
+                    key="chrome_rec_file",
+                )
+            with ic2:
+                import_mode = st.selectbox(
+                    "After import",
+                    ["Append steps", "Replace all steps"],
+                    key="chrome_import_mode",
+                )
+                replace_base_imp = st.toggle(
+                    "Apply {{BASE_URL}} from events",
+                    value=True,
+                    key="chrome_import_base_toggle",
+                    help="Only used when the JSON contains events (not already-built steps).",
+                )
+                imp_env = None
+                if replace_base_imp and envs_for_imp:
+                    imp_env = st.selectbox(
+                        "Base environment",
+                        envs_for_imp,
+                        format_func=lambda e: e.name,
+                        key="chrome_import_env",
+                    )
+                do_import = st.button("Import steps", type="primary", use_container_width=True)
+
+            if do_import:
+                raw_text = (import_paste or "").strip()
+                if import_file is not None:
+                    raw_text = import_file.getvalue().decode("utf-8", errors="replace")
+                try:
+                    base = imp_env.base_url if (replace_base_imp and imp_env) else None
+                    imported = parse_recording_text(raw_text, replace_base_url=base)
+                    if not imported:
+                        st.warning("No steps found in that recording.")
+                    else:
+                        if import_mode == "Replace all steps":
+                            st.session_state.draft_steps = imported
+                        else:
+                            st.session_state.draft_steps.extend(imported)
+                        add_audit(
+                            st.session_state.user.username,
+                            "import_recording",
+                            "test",
+                            getattr(test, "id", ""),
+                            f"{len(imported)} steps from Chrome extension",
+                        )
+                        st.success(
+                            f"Imported **{len(imported)}** step(s) — review and save below."
+                        )
+                        st.rerun()
+                except Exception as exc:
+                    st.error(f"Import failed: {exc}")
+
     if can("edit") and can_record_headed():
         envs_for_rec = list_environments()
         rc1, rc2, rc3 = st.columns([2.2, 1.4, 1])
@@ -485,10 +556,8 @@ def page_builder():
                             "If it does not, run `playwright install chromium`. "
                             "Click **Finish recording** in the dark banner when done."
                         )
-    elif can("edit") and is_streamlit_cloud():
-        st.caption("Use the step library below to edit tests, or record on your local machine.")
     elif not can("edit"):
-        st.info("Editors and Admins can record sessions.")
+        st.info("Editors and Admins can record sessions or import Chrome recordings.")
 
     st.markdown("#### Step library")
     grouped = steps_by_category()

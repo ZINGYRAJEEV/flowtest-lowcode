@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FlowTest Recorder</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">FlowTest</div>
+      <div class="sub">Chrome recorder</div>
+    </header>
+
+    <label for="startUrl">Start URL (optional)</label>
+    <input id="startUrl" type="url" placeholder="https://your-app.example.com" />
+
+    <label for="baseUrl">Replace base with {{BASE_URL}} (optional)</label>
+    <input id="baseUrl" type="url" placeholder="https://your-app.example.com" />
+
+    <label for="flowtestUrl">FlowTest app URL</label>
+    <input
+      id="flowtestUrl"
+      type="url"
+      value="https://lowcodetestautomation.streamlit.app/"
+      placeholder="https://….streamlit.app/"
+    />
+
+    <div class="row">
+      <button id="btnStart" class="primary">● Start</button>
+      <button id="btnStop" class="danger" disabled>Finish</button>
+    </div>
+
+    <p id="status" class="status">Idle — open the site tab, then Start.</p>
+
+    <div id="resultBox" class="hidden">
+      <p id="resultSummary"></p>
+      <div class="row">
+        <button id="btnCopy">Copy JSON</button>
+        <button id="btnDownload">Download</button>
+      </div>
+      <button id="btnOpen" class="primary wide">Open FlowTest → Import</button>
+      <p class="hint">
+        In FlowTest Test Builder: <strong>Import Chrome recording</strong> → paste or upload the JSON →
+        Append/Replace → Save.
+      </p>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

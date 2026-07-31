@@ -1,8 +1,9 @@
-# Pin Python via runtime.txt (python-3.11). Streamlit Cloud's default 3.14
-# cannot build greenlet (Playwright dependency) or pandas wheels reliably.
-streamlit>=1.32.0,<1.46
-pandas>=2.0.0,<2.3
-numpy>=1.24.0,<2.1
+# Streamlit Cloud often defaults to Python 3.14. Prefer Advanced settings → Python 3.11.
+# These pins also work on 3.14 (greenlet wheels + modern Playwright).
+streamlit>=1.32.0,<1.48
+pandas>=2.2.0
+numpy>=1.26.0
 plotly>=5.18.0,<6
-playwright==1.49.0
+playwright>=1.54.0,<1.62
+greenlet>=3.3.1,<4
 httpx>=0.27.0,<0.29

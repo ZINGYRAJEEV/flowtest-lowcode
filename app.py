@@ -1,8 +1,9 @@
 """
 FlowTest — Low-code / no-code test automation platform (MVP).
 
-Covers Phase-1 requirements: visual step builder, UI + API tests,
-environments, on-demand/CLI execution, reporting, and basic RBAC.
+Visual step builder, UI + API tests, environments, on-demand/CLI execution,
+reporting, Chrome recording import, and Monkey Explorer. Login is disabled
+for now (open access).
 """
 
 from __future__ import annotations
@@ -19,7 +20,6 @@ from flowtest.models import Environment, Project, TestCase, TestStep, new_id, ut
 from flowtest.steps_library import STEP_LIBRARY, default_config, get_step_def, steps_by_category
 from flowtest.storage import (
     add_audit,
-    authenticate,
     delete_environment,
     delete_project,
     delete_test,
@@ -30,17 +30,14 @@ from flowtest.storage import (
     get_test,
     import_test_dict,
     init_db,
-    list_audit,
     list_environments,
     list_projects,
     list_runs,
     list_tests,
-    list_users,
     run_stats,
     save_environment,
     save_project,
     save_test,
-    update_user_role,
 )
 
 init_db()
@@ -66,7 +63,7 @@ def _inject_styles() -> None:
 _inject_styles()
 
 
-# ---------- Auth helpers ----------
+# ---------- Open access (login disabled for now) ----------
 
 PERMISSIONS = {
     "Admin": {"view", "edit", "run", "admin"},
@@ -77,10 +74,8 @@ PERMISSIONS = {
 
 
 def can(action: str) -> bool:
-    user = st.session_state.get("user")
-    if not user:
-        return False
-    return action in PERMISSIONS.get(user.role, set())
+    """Open access — no login required for now."""
+    return True
 
 
 def page_header(title: str, subtitle: str = "", kicker: str = "FlowTest") -> None:
@@ -94,44 +89,22 @@ def page_header(title: str, subtitle: str = "", kicker: str = "FlowTest") -> Non
     )
 
 
-def require_login() -> bool:
-    if st.session_state.get("user"):
-        return True
+def ensure_session_user() -> Any:
+    """Attach a default local user so audit/run metadata still works without login."""
+    from flowtest.models import User
 
-    left, right = st.columns([1.2, 0.9], gap="large")
-    with left:
-        st.markdown(
-            """
-            <div class="ft-login-hero">
-              <span class="ft-pill">Quality engineering</span>
-              <h1>Build tests that feel effortless.</h1>
-              <p>Low-code automation for UI, API, and data checks — with recording, suites, and CI scripts your team can trust.</p>
-              <ul>
-                <li>Visual step builder &amp; browser recorder</li>
-                <li>Environments, suites, and role-based access</li>
-                <li>Jenkins &amp; Azure Pipelines export</li>
-              </ul>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with right:
-        st.markdown('<div class="ft-section-label">Welcome back</div>', unsafe_allow_html=True)
-        st.caption("Sign in to continue to your workspace.")
-        username = st.text_input("Username", value="admin")
-        password = st.text_input("Password", type="password", value="admin123")
-        if st.button("Sign in", type="primary", use_container_width=True):
-            user = authenticate(username.strip(), password)
-            if user:
-                st.session_state.user = user
-                add_audit(user.username, "login", "user", user.id)
-                st.rerun()
-            st.error("Invalid credentials")
-        st.markdown('<div class="ft-divider"></div>', unsafe_allow_html=True)
-        st.caption(
-            "Demo · `admin/admin123` · `editor/editor123` · `viewer/viewer123` · `runner/runner123`"
-        )
-    return False
+    user = st.session_state.get("user")
+    if user:
+        return user
+    user = User(
+        id="usr_local",
+        username="local",
+        display_name="Local user",
+        role="Admin",
+        password_hash="",
+    )
+    st.session_state.user = user
+    return user
 
 
 # ---------- Pages ----------
@@ -1247,61 +1220,6 @@ That command reads **steps from the JSON file in Git**, not from `flowtest_data/
             )
 
 
-def page_admin():
-    page_header(
-        "Users, roles & audit",
-        "Govern access with Admin, Editor, Runner, and Viewer roles.",
-        "Governance",
-    )
-    if not can("admin"):
-        st.warning("Admin only.")
-        st.markdown("#### Audit log (read-only for non-admins is hidden)")
-        return
-
-    users = list_users()
-    st.markdown("#### Users")
-    for u in users:
-        cols = st.columns([2, 2, 2])
-        cols[0].write(f"**{u.username}** — {u.display_name}")
-        role = cols[1].selectbox(
-            "Role",
-            ["Admin", "Editor", "Runner", "Viewer"],
-            index=["Admin", "Editor", "Runner", "Viewer"].index(u.role),
-            key=f"role_{u.id}",
-        )
-        if cols[2].button("Update role", key=f"upd_{u.id}"):
-            update_user_role(u.id, role)
-            add_audit(st.session_state.user.username, "role_change", "user", u.id, f"{u.username}→{role}")
-            st.success("Updated")
-            st.rerun()
-
-    st.markdown("#### Audit log")
-    audit = list_audit(100)
-    st.dataframe(
-        pd.DataFrame(
-            [
-                {
-                    "When": a.created_at,
-                    "Actor": a.actor,
-                    "Action": a.action,
-                    "Entity": f"{a.entity_type}:{a.entity_id}",
-                    "Detail": a.detail,
-                }
-                for a in audit
-            ]
-        ),
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.markdown("#### CI / CLI trigger")
-    st.code(
-        "python -m flowtest.cli list-tests\n"
-        "python -m flowtest.cli run --test-id <ID> --env-name Staging --user runner",
-        language="bash",
-    )
-
-
 def page_monkey():
     """Optional exploratory monkey tool (kept from earlier work)."""
     page_header(
@@ -1409,10 +1327,7 @@ def page_monkey():
 
 # ---------- Shell ----------
 
-if not require_login():
-    st.stop()
-
-user = st.session_state.user
+user = ensure_session_user()
 with st.sidebar:
     st.markdown(
         """
@@ -1427,7 +1342,7 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
-    st.caption(f"{user.display_name} · **{user.role}**")
+    st.caption("Open access · no login")
     st.markdown("---")
     pages = [
         "Dashboard",
@@ -1437,13 +1352,8 @@ with st.sidebar:
         "Runs & Reports",
         "CI / Pipelines",
         "Monkey Explorer",
-        "Admin",
     ]
     page = st.radio("Navigate", pages, label_visibility="collapsed")
-    st.markdown("---")
-    if st.button("Sign out"):
-        st.session_state.clear()
-        st.rerun()
 
 if page == "Dashboard":
     page_dashboard()
@@ -1459,5 +1369,3 @@ elif page == "CI / Pipelines":
     page_ci_pipelines()
 elif page == "Monkey Explorer":
     page_monkey()
-elif page == "Admin":
-    page_admin()

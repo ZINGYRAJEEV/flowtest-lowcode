@@ -7,7 +7,6 @@ Low-code / no-code test automation platform (MVP) aligned to the FlowTest requir
 - **Environments** with `{{VAR}}` substitution
 - On-demand execution + **CLI** for CI (`python -m flowtest.cli`)
 - **Runs & reports** (step results, screenshots, CSV export)
-- **RBAC**: Admin, Editor, Runner, Viewer + audit log
 - Optional **Monkey Explorer** for exploratory chaos coverage
 
 ## Quick start
@@ -18,14 +17,7 @@ playwright install chromium
 streamlit run app.py
 ```
 
-Demo logins:
-
-| User | Password | Role |
-|------|----------|------|
-| admin | admin123 | Admin |
-| editor | editor123 | Editor |
-| runner | runner123 | Runner |
-| viewer | viewer123 | Viewer |
+Opens with **no login** (open access for now).
 
 ## CI / Pipelines
 

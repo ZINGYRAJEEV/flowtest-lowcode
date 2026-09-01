@@ -12,7 +12,11 @@ def chrome_extension_dir() -> Path:
 
 
 def build_chrome_extension_zip() -> bytes:
-    """Zip the chrome-extension folder for Load unpacked after extract."""
+    """
+    Zip extension files at the archive root so unzipping
+    flowtest-chrome-extension.zip yields a folder with manifest.json
+    (ready for Chrome → Load unpacked).
+    """
     root = chrome_extension_dir()
     if not root.is_dir():
         raise FileNotFoundError(f"Chrome extension folder not found: {root}")
@@ -22,7 +26,8 @@ def build_chrome_extension_zip() -> bytes:
         for path in sorted(root.rglob("*")):
             if not path.is_file():
                 continue
-            # Keep folder name so unzip creates chrome-extension/
-            arcname = Path("chrome-extension") / path.relative_to(root)
-            zf.write(path, arcname.as_posix())
+            # Put files at zip root (not chrome-extension/...) so Load unpacked works
+            # on the extracted folder itself.
+            arcname = path.relative_to(root).as_posix()
+            zf.write(path, arcname)
     return buf.getvalue()

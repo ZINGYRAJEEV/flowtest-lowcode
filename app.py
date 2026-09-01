@@ -400,10 +400,11 @@ def page_builder():
             with g1:
                 st.markdown(
                     """
-1. Download the extension zip below  
-2. Unzip → Chrome `chrome://extensions` → **Developer mode** → **Load unpacked** → select `chrome-extension`  
-3. Open your app under test → extension **Start** → click/type/navigate → **Finish**  
-4. **Copy JSON** (or download) → paste/upload in **Import recording** below → **Save** the test
+1. Download the extension zip below and unzip it  
+2. Chrome → `chrome://extensions` → **Developer mode** → **Load unpacked**  
+3. Select the unzipped folder that contains **`manifest.json`** (not a parent folder)  
+4. Open your app under test → extension **Start** → click/type/navigate → **Finish**  
+5. **Copy JSON** (or download) → paste/upload in **Import recording** below → **Save** the test
 """
                 )
             with g2:

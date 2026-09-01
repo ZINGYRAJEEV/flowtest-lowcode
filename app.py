@@ -381,31 +381,71 @@ def page_builder():
             ]
         test.steps = st.session_state.draft_steps
 
-    # ----- Session recorder (FR-1) + Chrome extension import (Cloud) -----
+    # ----- Session recorder (FR-1): local headed + Cloud via Chrome extension -----
     st.markdown("#### Record browser session")
     from flowtest.browser_setup import can_record_headed, is_streamlit_cloud
+    from flowtest.extension_pack import build_chrome_extension_zip
     from flowtest.recording_import import parse_recording_text
 
-    if not can_record_headed():
-        st.info(
-            "**Streamlit Cloud has no desktop browser window**, so headed recording is off here.\n\n"
-            "Use the **FlowTest Chrome extension** on your PC → Copy/Download JSON → "
-            "**Import Chrome recording** below → Save → Run headlessly on Cloud.\n\n"
-            "Extension folder in this repo: `chrome-extension/` "
-            "(Chrome → Extensions → Developer mode → Load unpacked)."
-        )
-    else:
-        st.caption(
-            "Opens a real browser. Click, type, and navigate as usual. "
-            "**To add an assertion:** highlight text on the page, then click **Assert selection** "
-            "in the recorder banner (or press **A**). Click **Finish recording** when done. "
-            "On Cloud, use the Chrome extension + import instead."
-        )
+    cloud = is_streamlit_cloud()
+    headed_ok = can_record_headed()
 
     if can("edit"):
-        with st.expander("Import Chrome recording (works on Streamlit Cloud)", expanded=is_streamlit_cloud()):
+        if cloud or not headed_ok:
+            st.success(
+                "**Recording is enabled** on Streamlit Cloud via the FlowTest Chrome extension "
+                "(record in your browser → import steps here → save → run headlessly)."
+            )
+            g1, g2 = st.columns([2, 1])
+            with g1:
+                st.markdown(
+                    """
+1. Download the extension zip below  
+2. Unzip → Chrome `chrome://extensions` → **Developer mode** → **Load unpacked** → select `chrome-extension`  
+3. Open your app under test → extension **Start** → click/type/navigate → **Finish**  
+4. **Copy JSON** (or download) → paste/upload in **Import recording** below → **Save** the test
+"""
+                )
+            with g2:
+                try:
+                    zip_bytes = build_chrome_extension_zip()
+                    st.download_button(
+                        "⬇ Download Chrome recorder",
+                        data=zip_bytes,
+                        file_name="flowtest-chrome-extension.zip",
+                        mime="application/zip",
+                        type="primary",
+                        use_container_width=True,
+                        key="dl_chrome_ext",
+                    )
+                except Exception as exc:
+                    st.error(f"Extension pack unavailable: {exc}")
+                st.caption("Pin the extension after loading for quick access.")
+        else:
             st.caption(
-                "Record with the FlowTest Chrome extension, then paste the JSON or upload the file."
+                "Opens a real browser on this machine. Click, type, and navigate as usual. "
+                "**Assertions:** highlight text → **Assert selection** (or press **A**). "
+                "**Finish recording** when done. You can also use the Chrome extension + import below."
+            )
+            try:
+                zip_bytes = build_chrome_extension_zip()
+                st.download_button(
+                    "⬇ Download Chrome recorder (optional)",
+                    data=zip_bytes,
+                    file_name="flowtest-chrome-extension.zip",
+                    mime="application/zip",
+                    use_container_width=False,
+                    key="dl_chrome_ext_local",
+                )
+            except Exception:
+                pass
+
+        with st.expander(
+            "Import recording (Chrome extension JSON)",
+            expanded=cloud or not headed_ok,
+        ):
+            st.caption(
+                "Paste or upload the JSON from the FlowTest Chrome extension after you finish recording."
             )
             envs_for_imp = list_environments()
             ic1, ic2 = st.columns([2, 1])
@@ -471,7 +511,8 @@ def page_builder():
                 except Exception as exc:
                     st.error(f"Import failed: {exc}")
 
-    if can("edit") and can_record_headed():
+    if can("edit") and headed_ok:
+        st.markdown("##### Local headed recording")
         envs_for_rec = list_environments()
         rc1, rc2, rc3 = st.columns([2.2, 1.4, 1])
         with rc1:

@@ -56,15 +56,16 @@ In **Test Builder**:
 5. Click **Finish recording** in the banner (or close the window)
 6. Generated steps appear in the flow (append or replace) — edit, save, and run
 
-### Record for Streamlit Cloud (Chrome extension)
+### Record for Streamlit Cloud (Chrome extension) — enabled
 
-Cloud cannot open a desktop browser for interactive recording. Use the extension instead:
+Cloud cannot open a desktop browser for interactive Playwright recording. Recording is enabled via the Chrome extension:
 
-1. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → select `chrome-extension/`
-2. Open your app under test → extension popup → **Start** → interact → **Finish**
-3. **Copy JSON** or **Download**
-4. In FlowTest (Cloud or local) → Test Builder → **Import Chrome recording** → paste/upload → Save
-5. **Run** the test on Cloud headlessly
+1. In the Cloud app (**Test Builder**) click **Download Chrome recorder**, or use the `chrome-extension/` folder from this repo
+2. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → select `chrome-extension/`
+3. Open your app under test → extension popup → **Start** → interact → **Finish**
+4. **Copy JSON** or **Download**
+5. In FlowTest → **Import recording** → paste/upload → Save
+6. **Run** the test on Cloud headlessly
 
 See `chrome-extension/README.md`.
 

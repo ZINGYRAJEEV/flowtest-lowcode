@@ -515,12 +515,15 @@ def generate_monkey_test_cases(
     links = [e for e in clickables if e.element_type == "link"]
     toggles = [e for e in clickables if e.element_type in ("checkbox", "radio")]
 
-    target_count = recommend_coverage_count(assessment) if (max_coverage or count is None) else int(count)
-    if count is not None and not max_coverage:
+    if count is not None:
         target_count = max(1, int(count))
-    elif count is not None and max_coverage:
-        # User asked for a specific floor/ceiling while still preferring coverage
-        target_count = max(recommend_coverage_count(assessment), int(count))
+        if max_coverage:
+            # Explicit count is a ceiling; still prefer at least recommended coverage when higher
+            target_count = max(recommend_coverage_count(assessment), target_count)
+    elif max_coverage:
+        target_count = recommend_coverage_count(assessment)
+    else:
+        target_count = 8
 
     cases: list[MonkeyTestCase] = []
     used_ids: set[str] = set()
@@ -901,7 +904,10 @@ def generate_monkey_test_cases(
             rationale="Exploratory chaos finds edge-case state bugs missed by linear coverage.",
         )
 
-    return cases
+    # Honor an explicit user count as a hard ceiling (structured cases can exceed it otherwise).
+    if count is not None and not max_coverage:
+        return cases[: max(1, int(count))]
+    return cases[:target_count] if count is not None else cases
 
 
 def cases_to_dataframe(cases: list[MonkeyTestCase]):

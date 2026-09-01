@@ -1277,15 +1277,49 @@ def page_monkey():
         return
 
     url = st.text_input("URL", value="https://example.com")
-    headless = st.toggle("Headless", value=True, key="monk_headless")
+    c1, c2, c3 = st.columns([1.4, 1, 1])
+    with c1:
+        headless = st.toggle("Headless", value=True, key="monk_headless")
+        max_coverage = st.toggle(
+            "Max coverage (ignore exact generate count)",
+            value=False,
+            key="monk_max_coverage",
+            help="When off, generates exactly the number you set below (fills with random walks if needed).",
+        )
+    with c2:
+        generate_count = st.number_input(
+            "Tests to generate",
+            min_value=1,
+            max_value=200,
+            value=10,
+            step=1,
+            key="monk_generate_count",
+            help="How many monkey cases to create after assessing the page.",
+        )
+    with c3:
+        execute_count = st.number_input(
+            "Tests to execute",
+            min_value=1,
+            max_value=200,
+            value=5,
+            step=1,
+            key="monk_execute_count",
+            help="How many generated cases to run (first N, or your multi-select).",
+        )
+
     if st.button("Assess & generate", type="primary"):
         with st.spinner("Assessing…"):
             try:
                 assessment = me.assess_webpage_safe(url, headless=headless)
-                cases = me.generate_monkey_test_cases(assessment, max_coverage=True)
+                cases = me.generate_monkey_test_cases(
+                    assessment,
+                    count=int(generate_count),
+                    max_coverage=bool(max_coverage),
+                )
                 st.session_state.monk_assessment = assessment
                 st.session_state.monk_cases = cases
-                st.success(f"{len(assessment.elements)} elements · {len(cases)} cases")
+                st.session_state.monk_results = []
+                st.success(f"{len(assessment.elements)} elements · {len(cases)} cases generated")
             except Exception as exc:
                 st.error(me.format_exception(exc))
 
@@ -1293,10 +1327,32 @@ def page_monkey():
     cases = st.session_state.get("monk_cases") or []
     if assessment and cases:
         st.dataframe(me.cases_to_dataframe(cases), use_container_width=True, hide_index=True)
-        pick = st.multiselect("Run cases", [c.id for c in cases], default=[c.id for c in cases[:3]])
-        if can("run") and st.button("Run selected monkey cases") and pick:
+        default_pick = [c.id for c in cases[: int(execute_count)]]
+        pick = st.multiselect(
+            "Run cases",
+            [c.id for c in cases],
+            default=default_pick,
+            key="monk_pick_cases",
+            help="Defaults to the first N from “Tests to execute”. Adjust as needed.",
+        )
+        run_cols = st.columns(2)
+        with run_cols[0]:
+            run_selected = can("run") and st.button("Run selected monkey cases", use_container_width=True)
+        with run_cols[1]:
+            run_n = can("run") and st.button(
+                f"Run first {int(execute_count)}",
+                type="primary",
+                use_container_width=True,
+            )
+        if run_selected and pick:
             to_run = [c for c in cases if c.id in pick]
-            results = me.execute_selected_cases_safe(to_run, assessment.url, headless=headless)
+            with st.spinner(f"Running {len(to_run)} monkey case(s)…"):
+                results = me.execute_selected_cases_safe(to_run, assessment.url, headless=headless)
+            st.session_state.monk_results = results
+        elif run_n:
+            to_run = cases[: int(execute_count)]
+            with st.spinner(f"Running {len(to_run)} monkey case(s)…"):
+                results = me.execute_selected_cases_safe(to_run, assessment.url, headless=headless)
             st.session_state.monk_results = results
         results = st.session_state.get("monk_results") or []
         if results:

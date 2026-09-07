@@ -68,11 +68,17 @@ def _ensure_tui() -> None:
         }
         save_environment(env)
 
-    existing_names = {t.name for t in list_tests(project.id)}
+    existing_by_name = {t.name: t for t in list_tests(project.id)}
     data = load_suite_file(TUI_SUITE)
     cases = suite_file_to_test_cases(data, project_id=project.id)
     for case in cases:
-        if case.name in existing_names:
+        prior = existing_by_name.get(case.name)
+        if prior:
+            prior.steps = case.steps
+            prior.description = case.description
+            prior.tags = case.tags
+            prior.suite = case.suite
+            save_test(prior, bump_version=True)
             continue
         case.project_id = project.id
         case.id = new_id("tst_")

@@ -1,7 +1,7 @@
 {
   "id": "tst_e933d388f2",
   "name": "Smoke: Campaign landing (UTM)",
-  "description": "Opens the provided admarketplace landing URL via {{LANDING_URL}} and checks the page loads.",
+  "description": "Opens LANDING_URL, must clear cookies, assert TUI, and click Vakanties.",
   "tags": [
     "smoke",
     "ui",
@@ -10,10 +10,10 @@
     "coverage"
   ],
   "suite": "UI Coverage",
-  "version": 2,
+  "version": 3,
   "steps": [
     {
-      "id": "stp_db8656ea77",
+      "id": "stp_200307b2bb",
       "type": "ui.goto",
       "name": "Open campaign landing URL",
       "config": {
@@ -24,7 +24,7 @@
       "notes": "Uses LANDING_URL from environment (UTM campaign link)"
     },
     {
-      "id": "stp_a9eddadc8e",
+      "id": "stp_e5562c60eb",
       "type": "ui.wait",
       "name": "Wait for cookie dialog",
       "config": {
@@ -34,27 +34,38 @@
       "notes": ""
     },
     {
-      "id": "stp_a32ef57129",
+      "id": "stp_354439e276",
       "type": "util.custom_js",
       "name": "Click Accepteer cookies",
       "config": {
-        "script": "\n(() => {\n  const labels = [\n    'accepteer cookies',\n    'alles accepteren',\n    'accept cookies',\n    'accept all',\n    'accepteer',\n    'accepteren',\n    'akkoord',\n    'agree',\n    'toestaan',\n  ];\n  const clickMatch = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]'));\n    for (const el of nodes) {\n      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')\n        .replace(/\\s+/g, ' ')\n        .trim()\n        .toLowerCase();\n      if (!t) continue;\n      // Prefer exact-ish accept, never click Weigeren/Refuse\n      if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;\n      if (labels.some((l) => t === l || t.includes(l))) {\n        el.click();\n        return 'clicked:' + t.slice(0, 48);\n      }\n    }\n    return null;\n  };\n  const dialogs = Array.from(\n    document.querySelectorAll('[role=\"dialog\"], [aria-modal=\"true\"], [class*=\"cookie\" i], [class*=\"consent\" i], [id*=\"cookie\" i], [id*=\"consent\" i]')\n  );\n  for (const d of dialogs) {\n    const hit = clickMatch(d);\n    if (hit) return hit;\n  }\n  return clickMatch(document.body) || 'no-banner';\n})()\n"
+        "script": "\n(() => {\n  const labels = [\n    'accepteer cookies',\n    'alles accepteren',\n    'accept cookies',\n    'accept all',\n    'accepteer',\n    'accepteren',\n    'akkoord',\n    'agree',\n    'toestaan',\n  ];\n  const bodyText = () => ((document.body && document.body.innerText) || '').toLowerCase();\n  const modalVisible = () => {\n    const t = bodyText();\n    if (t.includes('we respecteren jouw privacy')) return true;\n    const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"]'));\n    return nodes.some((el) => {\n      const s = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n      return s.includes('accepteer cookies');\n    });\n  };\n  const clickMatch = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]'));\n    for (const el of nodes) {\n      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')\n        .replace(/\\s+/g, ' ')\n        .trim()\n        .toLowerCase();\n      if (!t) continue;\n      if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;\n      if (labels.some((l) => t === l || t.includes(l))) {\n        el.click();\n        return 'clicked:' + t.slice(0, 48);\n      }\n    }\n    return null;\n  };\n  const dialogs = Array.from(\n    document.querySelectorAll('[role=\"dialog\"], [aria-modal=\"true\"], [class*=\"cookie\" i], [class*=\"consent\" i], [id*=\"cookie\" i], [id*=\"consent\" i]')\n  );\n  let hit = null;\n  for (const d of dialogs) {\n    hit = clickMatch(d);\n    if (hit) break;\n  }\n  if (!hit) hit = clickMatch(document.body);\n  if (hit) return hit;\n  if (modalVisible()) {\n    throw new Error('Cookie privacy modal still visible \u2014 failed to click Accepteer cookies');\n  }\n  return 'no-banner';\n})()\n"
       },
       "enabled": true,
-      "notes": "TUI modal 'We respecteren jouw privacy' \u2014 clicks Accepteer cookies, never Weigeren"
+      "notes": "Throws if privacy modal remains after click attempt"
     },
     {
-      "id": "stp_75cab98270",
+      "id": "stp_cfe484645d",
       "type": "ui.wait",
       "name": "Settle after consent",
       "config": {
-        "ms": 1500
+        "ms": 1200
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_4c6ae357a4",
+      "id": "stp_b230a6056f",
+      "type": "util.custom_js",
+      "name": "Assert cookie modal gone",
+      "config": {
+        "script": "\n(() => {\n  const t = ((document.body && document.body.innerText) || '').toLowerCase();\n  if (t.includes('we respecteren jouw privacy')) {\n    throw new Error('Privacy cookie modal still blocking the page');\n  }\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"]'));\n  const still = nodes.some((el) => {\n    const s = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    return s.includes('accepteer cookies');\n  });\n  if (still) throw new Error('Accepteer cookies button still visible');\n  return 'modal-gone';\n})()\n",
+        "expect_contains": "modal-gone"
+      },
+      "enabled": true,
+      "notes": "Hard fail if We respecteren jouw privacy / Accepteer cookies still visible"
+    },
+    {
+      "id": "stp_72e4dedc2e",
       "type": "assert.element_exists",
       "name": "Landing document loaded",
       "config": {
@@ -65,7 +76,7 @@
       "notes": ""
     },
     {
-      "id": "stp_f11e870649",
+      "id": "stp_a386a42171",
       "type": "assert.text_contains",
       "name": "Page shows TUI",
       "config": {
@@ -78,7 +89,21 @@
       "notes": ""
     },
     {
-      "id": "stp_d14b9d5ff3",
+      "id": "stp_ecc8708d1e",
+      "type": "ui.click_by_text",
+      "name": "Landing nav Vakanties clickable",
+      "config": {
+        "text": "Vakanties",
+        "exact": false,
+        "role": "link",
+        "within": "",
+        "timeout_ms": 15000
+      },
+      "enabled": true,
+      "notes": "FAIL if cookie modal still blocks nav"
+    },
+    {
+      "id": "stp_d81307edc0",
       "type": "ui.screenshot",
       "name": "Landing screenshot",
       "config": {

@@ -480,6 +480,22 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
             save_as = cfg.get("save_as") or "js_result"
             variables[save_as] = result
             detail = f"JS → {str(result)[:120]}"
+            expect_contains = str(cfg.get("expect_contains") or "").strip()
+            expect_equals = cfg.get("expect_equals", None)
+            fail_if_contains = str(cfg.get("fail_if_contains") or "").strip()
+            result_s = "" if result is None else str(result)
+            if expect_contains and expect_contains not in result_s:
+                raise RuntimeError(
+                    f"JS result did not contain {expect_contains!r} (got {result_s[:200]!r})"
+                )
+            if expect_equals is not None and result_s != str(expect_equals):
+                raise RuntimeError(
+                    f"JS result expected {expect_equals!r} but got {result_s[:200]!r}"
+                )
+            if fail_if_contains and fail_if_contains in result_s:
+                raise RuntimeError(
+                    f"JS result unexpectedly contained {fail_if_contains!r} (got {result_s[:200]!r})"
+                )
 
         else:
             raise RuntimeError(f"Unknown step type: {stype}")

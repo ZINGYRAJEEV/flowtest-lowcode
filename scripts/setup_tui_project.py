@@ -46,6 +46,16 @@ COOKIE_JS = """
     'agree',
     'toestaan',
   ];
+  const bodyText = () => ((document.body && document.body.innerText) || '').toLowerCase();
+  const modalVisible = () => {
+    const t = bodyText();
+    if (t.includes('we respecteren jouw privacy')) return true;
+    const nodes = Array.from(document.querySelectorAll('button, [role="button"]'));
+    return nodes.some((el) => {
+      const s = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+      return s.includes('accepteer cookies');
+    });
+  };
   const clickMatch = (root) => {
     if (!root) return null;
     const nodes = Array.from(root.querySelectorAll('button, [role="button"], a, input[type="button"], input[type="submit"]'));
@@ -55,7 +65,6 @@ COOKIE_JS = """
         .trim()
         .toLowerCase();
       if (!t) continue;
-      // Prefer exact-ish accept, never click Weigeren/Refuse
       if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;
       if (labels.some((l) => t === l || t.includes(l))) {
         el.click();
@@ -67,11 +76,66 @@ COOKIE_JS = """
   const dialogs = Array.from(
     document.querySelectorAll('[role="dialog"], [aria-modal="true"], [class*="cookie" i], [class*="consent" i], [id*="cookie" i], [id*="consent" i]')
   );
+  let hit = null;
+  for (const d of dialogs) {
+    hit = clickMatch(d);
+    if (hit) break;
+  }
+  if (!hit) hit = clickMatch(document.body);
+  if (hit) return hit;
+  if (modalVisible()) {
+    throw new Error('Cookie privacy modal still visible — failed to click Accepteer cookies');
+  }
+  return 'no-banner';
+})()
+"""
+
+# Soft variant for return-home loops (do not fail if banner already gone)
+COOKIE_JS_SOFT = """
+(() => {
+  const labels = [
+    'accepteer cookies', 'alles accepteren', 'accept cookies', 'accept all',
+    'accepteer', 'accepteren', 'akkoord', 'agree', 'toestaan',
+  ];
+  const clickMatch = (root) => {
+    if (!root) return 'no-banner';
+    const nodes = Array.from(root.querySelectorAll('button, [role="button"], a, input[type="button"], input[type="submit"]'));
+    for (const el of nodes) {
+      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')
+        .replace(/\\s+/g, ' ').trim().toLowerCase();
+      if (!t) continue;
+      if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;
+      if (labels.some((l) => t === l || t.includes(l))) {
+        el.click();
+        return 'clicked:' + t.slice(0, 48);
+      }
+    }
+    return 'no-banner';
+  };
+  const dialogs = Array.from(
+    document.querySelectorAll('[role="dialog"], [aria-modal="true"], [class*="cookie" i], [class*="consent" i], [id*="cookie" i], [id*="consent" i]')
+  );
   for (const d of dialogs) {
     const hit = clickMatch(d);
-    if (hit) return hit;
+    if (hit.startsWith('clicked:')) return hit;
   }
-  return clickMatch(document.body) || 'no-banner';
+  return clickMatch(document.body);
+})()
+"""
+
+ASSERT_MODAL_GONE_JS = """
+(() => {
+  const t = ((document.body && document.body.innerText) || '').toLowerCase();
+  if (t.includes('we respecteren jouw privacy')) {
+    throw new Error('Privacy cookie modal still blocking the page');
+  }
+  const nodes = Array.from(document.querySelectorAll('button, [role="button"]'));
+  const still = nodes.some((el) => {
+    const s = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+    return s.includes('accepteer cookies');
+  });
+  if (still) throw new Error('Accepteer cookies button still visible');
+  return 'modal-gone';
 })()
 """
 
@@ -99,7 +163,7 @@ def _optional_click_js(label: str) -> str:
 
 
 def _accept_cookies_steps(prefix: str = "") -> list[TestStep]:
-    """Privacy modal: 'Accepteer cookies' / 'Weigeren' — must accept before nav works."""
+    """Privacy modal must be cleared — steps FAIL if modal stays up."""
     p = f"{prefix} " if prefix else ""
     return [
         _stp("ui.wait", f"{p}Wait for cookie dialog".strip(), {"ms": 2800}),
@@ -107,9 +171,15 @@ def _accept_cookies_steps(prefix: str = "") -> list[TestStep]:
             "util.custom_js",
             f"{p}Click Accepteer cookies".strip(),
             {"script": COOKIE_JS},
-            "TUI modal 'We respecteren jouw privacy' — clicks Accepteer cookies, never Weigeren",
+            "Throws if privacy modal remains after click attempt",
         ),
-        _stp("ui.wait", f"{p}Settle after consent".strip(), {"ms": 1500}),
+        _stp("ui.wait", f"{p}Settle after consent".strip(), {"ms": 1200}),
+        _stp(
+            "util.custom_js",
+            f"{p}Assert cookie modal gone".strip(),
+            {"script": ASSERT_MODAL_GONE_JS, "expect_contains": "modal-gone"},
+            "Hard fail if We respecteren jouw privacy / Accepteer cookies still visible",
+        ),
     ]
 
 
@@ -123,44 +193,72 @@ def build_core_smoke() -> list[TestStep]:
             "Body mentions TUI / vakantie",
             {"selector": "body", "text": "TUI", "timeout_ms": 20000, "ignore_case": True},
         ),
+        _stp(
+            "ui.click_by_text",
+            "Header Vakanties is clickable",
+            {"text": "Vakanties", "exact": False, "role": "link", "within": "", "timeout_ms": 15000},
+            "Fails if cookie overlay still blocks navigation",
+        ),
+        _stp("ui.wait", "After Vakanties", {"ms": 800}),
         _stp("util.custom_js", "Scroll below fold", {"script": "window.scrollBy(0, 1000);"}),
         _stp("ui.wait", "Wait after scroll", {"ms": 800}),
-        _stp("util.custom_js", "Scroll further", {"script": "window.scrollBy(0, 1000);"}),
-        _stp("ui.wait", "Wait after second scroll", {"ms": 600}),
         _stp("assert.element_exists", "Document still responsive", {"selector": "body", "timeout_ms": 10000}),
         _stp("ui.screenshot", "Homepage screenshot", {"name": "tui_home"}),
     ]
 
 
 def build_nav_coverage() -> list[TestStep]:
-    labels = [
-        "Vakanties",
-        "Vliegtickets",
-        "Cruises",
-        "Zoeken",
-        "Inloggen",
-        "Service & Contact",
-        "Bestemmingen",
-        "Last minute",
+    required = [
+        ("Vakanties", "link"),
+        ("Vliegtickets", "link"),
+        ("Cruises", "link"),
+        ("Zoeken", ""),
+        ("Inloggen", "link"),
     ]
+    optional = ["Service & Contact", "Bestemmingen", "Last minute"]
     steps = [
         _stp("ui.goto", "Open TUI homepage", {"url": "{{BASE_URL}}", "timeout_ms": 60000}),
         *_accept_cookies_steps(),
     ]
-    for label in labels:
+    for label, role in required:
+        steps.append(
+            _stp(
+                "ui.click_by_text",
+                f'Click "{label}"',
+                {
+                    "text": label,
+                    "exact": False,
+                    "role": role,
+                    "within": "",
+                    "timeout_ms": 15000,
+                },
+                "Required — FAIL if blocked by cookie modal or missing",
+            )
+        )
+        steps.append(_stp("ui.wait", f"After {label}", {"ms": 800}))
+        steps.append(_stp("ui.goto", "Return home", {"url": "{{BASE_URL}}", "timeout_ms": 60000}))
+        steps.append(_stp("ui.wait", "Home settle", {"ms": 900}))
+        steps.append(_stp("util.custom_js", "Re-dismiss cookies if shown", {"script": COOKIE_JS_SOFT}))
+        steps.append(_stp("ui.wait", "After re-dismiss", {"ms": 500}))
+        steps.append(
+            _stp(
+                "util.custom_js",
+                "Assert modal not blocking",
+                {"script": ASSERT_MODAL_GONE_JS, "expect_contains": "modal-gone"},
+            )
+        )
+    for label in optional:
         steps.append(
             _stp(
                 "util.custom_js",
                 f'Optional click "{label}"',
                 {"script": _optional_click_js(label)},
-                "Non-fatal if control missing (A-B UI)",
+                "Optional — does not fail if missing",
             )
         )
-        steps.append(_stp("ui.wait", f"After {label}", {"ms": 700}))
+        steps.append(_stp("ui.wait", f"After optional {label}", {"ms": 500}))
         steps.append(_stp("ui.goto", "Return home", {"url": "{{BASE_URL}}", "timeout_ms": 60000}))
-        steps.append(_stp("ui.wait", "Home settle", {"ms": 900}))
-        steps.append(_stp("util.custom_js", "Re-dismiss cookies if shown", {"script": COOKIE_JS}))
-        steps.append(_stp("ui.wait", "After re-dismiss", {"ms": 400}))
+        steps.append(_stp("util.custom_js", "Soft cookie dismiss", {"script": COOKIE_JS_SOFT}))
     steps.append(
         _stp(
             "assert.element_exists",
@@ -198,15 +296,23 @@ def build_search_coverage() -> list[TestStep]:
   };
   const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad', 'hotel'], 'Spanje');
   const b = tryFill(['vertrek', 'depart', 'date', 'datum'], '2026-10-01');
+  if (a === 'no-field' && b === 'no-field') {
+    throw new Error('No searchable destination/date field found after cookie accept');
+  }
   return a + '|' + b;
 })()
 """
     return [
         _stp("ui.goto", "Open TUI homepage", {"url": "{{BASE_URL}}", "timeout_ms": 60000}),
         *_accept_cookies_steps(),
-        _stp("util.custom_js", "Fill destination / date if present", {"script": search_js}),
+        _stp("util.custom_js", "Fill destination / date fields", {"script": search_js}),
         _stp("ui.wait", "After fill", {"ms": 500}),
-        _stp("util.custom_js", "Click Zoeken if present", {"script": _optional_click_js("Zoeken")}),
+        _stp(
+            "ui.click_by_text",
+            "Click Zoeken",
+            {"text": "Zoeken", "exact": False, "role": "button", "within": "", "timeout_ms": 15000},
+            "Required — FAIL if search CTA blocked/missing",
+        ),
         _stp("ui.wait", "Wait for search reaction", {"ms": 2000}),
         _stp(
             "assert.element_exists",
@@ -235,6 +341,12 @@ def build_landing_utm_smoke() -> list[TestStep]:
             "assert.text_contains",
             "Page shows TUI",
             {"selector": "body", "text": "TUI", "timeout_ms": 15000, "ignore_case": True},
+        ),
+        _stp(
+            "ui.click_by_text",
+            "Landing nav Vakanties clickable",
+            {"text": "Vakanties", "exact": False, "role": "link", "within": "", "timeout_ms": 15000},
+            "FAIL if cookie modal still blocks nav",
         ),
         _stp("ui.screenshot", "Landing screenshot", {"name": "tui_landing_utm"}),
     ]
@@ -337,25 +449,25 @@ def main() -> int:
 
     upsert(
         "Smoke: TUI homepage load & brand",
-        "Opens tui.nl, dismisses cookies if present, asserts TUI branding, scrolls, screenshots.",
+        "Opens tui.nl, MUST accept cookies, asserts branding, verifies Vakanties nav is clickable.",
         build_core_smoke(),
         ["smoke", "ui", "tui", "coverage"],
     )
     upsert(
         "Coverage: TUI navigation & CTAs",
-        "Optional clicks on common Dutch nav/CTA labels; returns home between attempts.",
+        "Required Playwright clicks on Vakanties/Vliegtickets/Cruises/Zoeken/Inloggen — FAIL if blocked.",
         build_nav_coverage(),
         ["ui", "nav", "tui", "coverage"],
     )
     upsert(
         "Coverage: TUI search / form fields",
-        "Best-effort fill of destination/date fields and Zoeken click via resilient JS helpers.",
+        "After cookies, must find destination/date fields and click Zoeken — FAIL otherwise.",
         build_search_coverage(),
         ["ui", "search", "form", "tui", "coverage"],
     )
     upsert(
         "Smoke: Campaign landing (UTM)",
-        "Opens the provided admarketplace landing URL via {{LANDING_URL}} and checks the page loads.",
+        "Opens LANDING_URL, must clear cookies, assert TUI, and click Vakanties.",
         build_landing_utm_smoke(),
         ["smoke", "ui", "tui", "utm", "coverage"],
     )

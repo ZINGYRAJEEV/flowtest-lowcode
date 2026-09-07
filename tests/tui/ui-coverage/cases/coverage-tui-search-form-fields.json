@@ -1,7 +1,7 @@
 {
   "id": "tst_7dd73062c7",
   "name": "Coverage: TUI search / form fields",
-  "description": "Best-effort fill of destination/date fields and Zoeken click via resilient JS helpers.",
+  "description": "After cookies, must find destination/date fields and click Zoeken \u2014 FAIL otherwise.",
   "tags": [
     "ui",
     "search",
@@ -10,10 +10,10 @@
     "coverage"
   ],
   "suite": "UI Coverage",
-  "version": 3,
+  "version": 4,
   "steps": [
     {
-      "id": "stp_b0b7d4b826",
+      "id": "stp_e42da8dd7d",
       "type": "ui.goto",
       "name": "Open TUI homepage",
       "config": {
@@ -24,7 +24,7 @@
       "notes": ""
     },
     {
-      "id": "stp_b94ca2720a",
+      "id": "stp_5c72481c5b",
       "type": "ui.wait",
       "name": "Wait for cookie dialog",
       "config": {
@@ -34,37 +34,48 @@
       "notes": ""
     },
     {
-      "id": "stp_aae24c0ac4",
+      "id": "stp_aba4c305d8",
       "type": "util.custom_js",
       "name": "Click Accepteer cookies",
       "config": {
-        "script": "\n(() => {\n  const labels = [\n    'accepteer cookies',\n    'alles accepteren',\n    'accept cookies',\n    'accept all',\n    'accepteer',\n    'accepteren',\n    'akkoord',\n    'agree',\n    'toestaan',\n  ];\n  const clickMatch = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]'));\n    for (const el of nodes) {\n      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')\n        .replace(/\\s+/g, ' ')\n        .trim()\n        .toLowerCase();\n      if (!t) continue;\n      // Prefer exact-ish accept, never click Weigeren/Refuse\n      if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;\n      if (labels.some((l) => t === l || t.includes(l))) {\n        el.click();\n        return 'clicked:' + t.slice(0, 48);\n      }\n    }\n    return null;\n  };\n  const dialogs = Array.from(\n    document.querySelectorAll('[role=\"dialog\"], [aria-modal=\"true\"], [class*=\"cookie\" i], [class*=\"consent\" i], [id*=\"cookie\" i], [id*=\"consent\" i]')\n  );\n  for (const d of dialogs) {\n    const hit = clickMatch(d);\n    if (hit) return hit;\n  }\n  return clickMatch(document.body) || 'no-banner';\n})()\n"
+        "script": "\n(() => {\n  const labels = [\n    'accepteer cookies',\n    'alles accepteren',\n    'accept cookies',\n    'accept all',\n    'accepteer',\n    'accepteren',\n    'akkoord',\n    'agree',\n    'toestaan',\n  ];\n  const bodyText = () => ((document.body && document.body.innerText) || '').toLowerCase();\n  const modalVisible = () => {\n    const t = bodyText();\n    if (t.includes('we respecteren jouw privacy')) return true;\n    const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"]'));\n    return nodes.some((el) => {\n      const s = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n      return s.includes('accepteer cookies');\n    });\n  };\n  const clickMatch = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]'));\n    for (const el of nodes) {\n      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')\n        .replace(/\\s+/g, ' ')\n        .trim()\n        .toLowerCase();\n      if (!t) continue;\n      if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;\n      if (labels.some((l) => t === l || t.includes(l))) {\n        el.click();\n        return 'clicked:' + t.slice(0, 48);\n      }\n    }\n    return null;\n  };\n  const dialogs = Array.from(\n    document.querySelectorAll('[role=\"dialog\"], [aria-modal=\"true\"], [class*=\"cookie\" i], [class*=\"consent\" i], [id*=\"cookie\" i], [id*=\"consent\" i]')\n  );\n  let hit = null;\n  for (const d of dialogs) {\n    hit = clickMatch(d);\n    if (hit) break;\n  }\n  if (!hit) hit = clickMatch(document.body);\n  if (hit) return hit;\n  if (modalVisible()) {\n    throw new Error('Cookie privacy modal still visible \u2014 failed to click Accepteer cookies');\n  }\n  return 'no-banner';\n})()\n"
       },
       "enabled": true,
-      "notes": "TUI modal 'We respecteren jouw privacy' \u2014 clicks Accepteer cookies, never Weigeren"
+      "notes": "Throws if privacy modal remains after click attempt"
     },
     {
-      "id": "stp_2f76ee18f1",
+      "id": "stp_0e447d1908",
       "type": "ui.wait",
       "name": "Settle after consent",
       "config": {
-        "ms": 1500
+        "ms": 1200
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_d8c27e53c9",
+      "id": "stp_647111a312",
       "type": "util.custom_js",
-      "name": "Fill destination / date if present",
+      "name": "Assert cookie modal gone",
       "config": {
-        "script": "\n(() => {\n  const tryFill = (hints, value) => {\n    const inputs = Array.from(document.querySelectorAll('input, textarea, [contenteditable=\"true\"]'));\n    for (const el of inputs) {\n      const meta = [\n        el.getAttribute('name') || '',\n        el.getAttribute('placeholder') || '',\n        el.getAttribute('aria-label') || '',\n        el.id || '',\n      ].join(' ').toLowerCase();\n      if (!hints.some((h) => meta.includes(h))) continue;\n      if (el.isContentEditable) { el.textContent = value; }\n      else {\n        el.focus();\n        el.value = value;\n        el.dispatchEvent(new Event('input', { bubbles: true }));\n        el.dispatchEvent(new Event('change', { bubbles: true }));\n      }\n      return 'filled:' + meta.slice(0, 40);\n    }\n    return 'no-field';\n  };\n  const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad', 'hotel'], 'Spanje');\n  const b = tryFill(['vertrek', 'depart', 'date', 'datum'], '2026-10-01');\n  return a + '|' + b;\n})()\n"
+        "script": "\n(() => {\n  const t = ((document.body && document.body.innerText) || '').toLowerCase();\n  if (t.includes('we respecteren jouw privacy')) {\n    throw new Error('Privacy cookie modal still blocking the page');\n  }\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"]'));\n  const still = nodes.some((el) => {\n    const s = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    return s.includes('accepteer cookies');\n  });\n  if (still) throw new Error('Accepteer cookies button still visible');\n  return 'modal-gone';\n})()\n",
+        "expect_contains": "modal-gone"
+      },
+      "enabled": true,
+      "notes": "Hard fail if We respecteren jouw privacy / Accepteer cookies still visible"
+    },
+    {
+      "id": "stp_080967740c",
+      "type": "util.custom_js",
+      "name": "Fill destination / date fields",
+      "config": {
+        "script": "\n(() => {\n  const tryFill = (hints, value) => {\n    const inputs = Array.from(document.querySelectorAll('input, textarea, [contenteditable=\"true\"]'));\n    for (const el of inputs) {\n      const meta = [\n        el.getAttribute('name') || '',\n        el.getAttribute('placeholder') || '',\n        el.getAttribute('aria-label') || '',\n        el.id || '',\n      ].join(' ').toLowerCase();\n      if (!hints.some((h) => meta.includes(h))) continue;\n      if (el.isContentEditable) { el.textContent = value; }\n      else {\n        el.focus();\n        el.value = value;\n        el.dispatchEvent(new Event('input', { bubbles: true }));\n        el.dispatchEvent(new Event('change', { bubbles: true }));\n      }\n      return 'filled:' + meta.slice(0, 40);\n    }\n    return 'no-field';\n  };\n  const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad', 'hotel'], 'Spanje');\n  const b = tryFill(['vertrek', 'depart', 'date', 'datum'], '2026-10-01');\n  if (a === 'no-field' && b === 'no-field') {\n    throw new Error('No searchable destination/date field found after cookie accept');\n  }\n  return a + '|' + b;\n})()\n"
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_f4f0c4b22e",
+      "id": "stp_c867c6b45e",
       "type": "ui.wait",
       "name": "After fill",
       "config": {
@@ -74,17 +85,21 @@
       "notes": ""
     },
     {
-      "id": "stp_baa046b89d",
-      "type": "util.custom_js",
-      "name": "Click Zoeken if present",
+      "id": "stp_800427f82c",
+      "type": "ui.click_by_text",
+      "name": "Click Zoeken",
       "config": {
-        "script": "\n(() => {\n  const want = 'Zoeken'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+        "text": "Zoeken",
+        "exact": false,
+        "role": "button",
+        "within": "",
+        "timeout_ms": 15000
       },
       "enabled": true,
-      "notes": ""
+      "notes": "Required \u2014 FAIL if search CTA blocked/missing"
     },
     {
-      "id": "stp_21dd780040",
+      "id": "stp_6b4001c925",
       "type": "ui.wait",
       "name": "Wait for search reaction",
       "config": {
@@ -94,7 +109,7 @@
       "notes": ""
     },
     {
-      "id": "stp_04e4a48b5c",
+      "id": "stp_b4f5019193",
       "type": "assert.element_exists",
       "name": "Page responsive after search interaction",
       "config": {
@@ -105,7 +120,7 @@
       "notes": ""
     },
     {
-      "id": "stp_123d70874d",
+      "id": "stp_011163653c",
       "type": "ui.screenshot",
       "name": "After search interaction",
       "config": {

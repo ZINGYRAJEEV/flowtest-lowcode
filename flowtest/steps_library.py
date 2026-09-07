@@ -257,6 +257,18 @@ STEP_LIBRARY: list[dict[str, Any]] = [
         "fields": [
             {"key": "script", "label": "JavaScript expression/script", "kind": "textarea", "default": "document.title"},
             {"key": "save_as", "label": "Save result as", "kind": "text", "default": "js_result"},
+            {
+                "key": "expect_contains",
+                "label": "Fail unless result contains",
+                "kind": "text",
+                "default": "",
+            },
+            {
+                "key": "fail_if_contains",
+                "label": "Fail if result contains",
+                "kind": "text",
+                "default": "",
+            },
         ],
     },
 ]

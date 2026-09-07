@@ -10,10 +10,10 @@
     "coverage"
   ],
   "suite": "UI Coverage",
-  "version": 1,
+  "version": 2,
   "steps": [
     {
-      "id": "stp_235e1e5ec4",
+      "id": "stp_db8656ea77",
       "type": "ui.goto",
       "name": "Open campaign landing URL",
       "config": {
@@ -24,37 +24,37 @@
       "notes": "Uses LANDING_URL from environment (UTM campaign link)"
     },
     {
-      "id": "stp_7b220ba5f9",
+      "id": "stp_a9eddadc8e",
       "type": "ui.wait",
-      "name": "Wait for landing",
+      "name": "Wait for cookie dialog",
       "config": {
-        "ms": 2500
+        "ms": 2800
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_bc9cdb9b88",
+      "id": "stp_a32ef57129",
       "type": "util.custom_js",
-      "name": "Dismiss cookies",
+      "name": "Click Accepteer cookies",
       "config": {
-        "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+        "script": "\n(() => {\n  const labels = [\n    'accepteer cookies',\n    'alles accepteren',\n    'accept cookies',\n    'accept all',\n    'accepteer',\n    'accepteren',\n    'akkoord',\n    'agree',\n    'toestaan',\n  ];\n  const clickMatch = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]'));\n    for (const el of nodes) {\n      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')\n        .replace(/\\s+/g, ' ')\n        .trim()\n        .toLowerCase();\n      if (!t) continue;\n      // Prefer exact-ish accept, never click Weigeren/Refuse\n      if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;\n      if (labels.some((l) => t === l || t.includes(l))) {\n        el.click();\n        return 'clicked:' + t.slice(0, 48);\n      }\n    }\n    return null;\n  };\n  const dialogs = Array.from(\n    document.querySelectorAll('[role=\"dialog\"], [aria-modal=\"true\"], [class*=\"cookie\" i], [class*=\"consent\" i], [id*=\"cookie\" i], [id*=\"consent\" i]')\n  );\n  for (const d of dialogs) {\n    const hit = clickMatch(d);\n    if (hit) return hit;\n  }\n  return clickMatch(document.body) || 'no-banner';\n})()\n"
       },
       "enabled": true,
-      "notes": ""
+      "notes": "TUI modal 'We respecteren jouw privacy' \u2014 clicks Accepteer cookies, never Weigeren"
     },
     {
-      "id": "stp_201cf1c529",
+      "id": "stp_75cab98270",
       "type": "ui.wait",
-      "name": "Settle",
+      "name": "Settle after consent",
       "config": {
-        "ms": 1000
+        "ms": 1500
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_7f0d7d0d4c",
+      "id": "stp_4c6ae357a4",
       "type": "assert.element_exists",
       "name": "Landing document loaded",
       "config": {
@@ -65,20 +65,20 @@
       "notes": ""
     },
     {
-      "id": "stp_fdd28c6e96",
+      "id": "stp_f11e870649",
       "type": "assert.text_contains",
-      "name": "Page content present",
+      "name": "Page shows TUI",
       "config": {
         "selector": "body",
-        "text": " ",
-        "timeout_ms": 10000,
+        "text": "TUI",
+        "timeout_ms": 15000,
         "ignore_case": true
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_54c6518292",
+      "id": "stp_d14b9d5ff3",
       "type": "ui.screenshot",
       "name": "Landing screenshot",
       "config": {

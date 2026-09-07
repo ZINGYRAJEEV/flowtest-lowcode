@@ -10,10 +10,10 @@
     "coverage"
   ],
   "suite": "UI Coverage",
-  "version": 2,
+  "version": 3,
   "steps": [
     {
-      "id": "stp_9d068f4725",
+      "id": "stp_b0b7d4b826",
       "type": "ui.goto",
       "name": "Open TUI homepage",
       "config": {
@@ -24,47 +24,47 @@
       "notes": ""
     },
     {
-      "id": "stp_213b61a1d1",
+      "id": "stp_b94ca2720a",
       "type": "ui.wait",
-      "name": "Wait for search UI",
+      "name": "Wait for cookie dialog",
       "config": {
-        "ms": 2000
+        "ms": 2800
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_1cc9adc163",
+      "id": "stp_aae24c0ac4",
       "type": "util.custom_js",
-      "name": "Dismiss cookies",
+      "name": "Click Accepteer cookies",
       "config": {
-        "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+        "script": "\n(() => {\n  const labels = [\n    'accepteer cookies',\n    'alles accepteren',\n    'accept cookies',\n    'accept all',\n    'accepteer',\n    'accepteren',\n    'akkoord',\n    'agree',\n    'toestaan',\n  ];\n  const clickMatch = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]'));\n    for (const el of nodes) {\n      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')\n        .replace(/\\s+/g, ' ')\n        .trim()\n        .toLowerCase();\n      if (!t) continue;\n      // Prefer exact-ish accept, never click Weigeren/Refuse\n      if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;\n      if (labels.some((l) => t === l || t.includes(l))) {\n        el.click();\n        return 'clicked:' + t.slice(0, 48);\n      }\n    }\n    return null;\n  };\n  const dialogs = Array.from(\n    document.querySelectorAll('[role=\"dialog\"], [aria-modal=\"true\"], [class*=\"cookie\" i], [class*=\"consent\" i], [id*=\"cookie\" i], [id*=\"consent\" i]')\n  );\n  for (const d of dialogs) {\n    const hit = clickMatch(d);\n    if (hit) return hit;\n  }\n  return clickMatch(document.body) || 'no-banner';\n})()\n"
       },
       "enabled": true,
-      "notes": ""
+      "notes": "TUI modal 'We respecteren jouw privacy' \u2014 clicks Accepteer cookies, never Weigeren"
     },
     {
-      "id": "stp_7fdfbbfabf",
+      "id": "stp_2f76ee18f1",
       "type": "ui.wait",
-      "name": "After cookies",
+      "name": "Settle after consent",
       "config": {
-        "ms": 800
+        "ms": 1500
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_ccde181fbb",
+      "id": "stp_d8c27e53c9",
       "type": "util.custom_js",
       "name": "Fill destination / date if present",
       "config": {
-        "code": "\n(() => {\n  const tryFill = (hints, value) => {\n    const inputs = Array.from(document.querySelectorAll('input, textarea, [contenteditable=\"true\"]'));\n    for (const el of inputs) {\n      const meta = [\n        el.getAttribute('name') || '',\n        el.getAttribute('placeholder') || '',\n        el.getAttribute('aria-label') || '',\n        el.id || '',\n      ].join(' ').toLowerCase();\n      if (!hints.some((h) => meta.includes(h))) continue;\n      if (el.isContentEditable) { el.textContent = value; }\n      else {\n        el.focus();\n        el.value = value;\n        el.dispatchEvent(new Event('input', { bubbles: true }));\n        el.dispatchEvent(new Event('change', { bubbles: true }));\n      }\n      return 'filled:' + meta.slice(0, 40);\n    }\n    return 'no-field';\n  };\n  const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad'], 'Spanje');\n  const b = tryFill(['vertrek', 'depart', 'date', 'datum'], '2026-10-01');\n  return a + '|' + b;\n})()\n"
+        "script": "\n(() => {\n  const tryFill = (hints, value) => {\n    const inputs = Array.from(document.querySelectorAll('input, textarea, [contenteditable=\"true\"]'));\n    for (const el of inputs) {\n      const meta = [\n        el.getAttribute('name') || '',\n        el.getAttribute('placeholder') || '',\n        el.getAttribute('aria-label') || '',\n        el.id || '',\n      ].join(' ').toLowerCase();\n      if (!hints.some((h) => meta.includes(h))) continue;\n      if (el.isContentEditable) { el.textContent = value; }\n      else {\n        el.focus();\n        el.value = value;\n        el.dispatchEvent(new Event('input', { bubbles: true }));\n        el.dispatchEvent(new Event('change', { bubbles: true }));\n      }\n      return 'filled:' + meta.slice(0, 40);\n    }\n    return 'no-field';\n  };\n  const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad', 'hotel'], 'Spanje');\n  const b = tryFill(['vertrek', 'depart', 'date', 'datum'], '2026-10-01');\n  return a + '|' + b;\n})()\n"
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_abcde5f4e4",
+      "id": "stp_f4f0c4b22e",
       "type": "ui.wait",
       "name": "After fill",
       "config": {
@@ -74,17 +74,17 @@
       "notes": ""
     },
     {
-      "id": "stp_3bf6722a4c",
+      "id": "stp_baa046b89d",
       "type": "util.custom_js",
       "name": "Click Zoeken if present",
       "config": {
-        "code": "\n(() => {\n  const want = 'Zoeken'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+        "script": "\n(() => {\n  const want = 'Zoeken'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
       },
       "enabled": true,
       "notes": ""
     },
     {
-      "id": "stp_76315f02cd",
+      "id": "stp_21dd780040",
       "type": "ui.wait",
       "name": "Wait for search reaction",
       "config": {
@@ -94,7 +94,7 @@
       "notes": ""
     },
     {
-      "id": "stp_5cad46da12",
+      "id": "stp_04e4a48b5c",
       "type": "assert.element_exists",
       "name": "Page responsive after search interaction",
       "config": {
@@ -105,7 +105,7 @@
       "notes": ""
     },
     {
-      "id": "stp_caa511a92b",
+      "id": "stp_123d70874d",
       "type": "ui.screenshot",
       "name": "After search interaction",
       "config": {

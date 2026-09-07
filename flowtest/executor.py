@@ -475,7 +475,7 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
         elif stype == "util.custom_js":
             if page is None:
                 raise RuntimeError("Browser not available")
-            script = cfg.get("script") or "null"
+            script = cfg.get("script") or cfg.get("code") or "null"
             result = page.evaluate(script)
             save_as = cfg.get("save_as") or "js_result"
             variables[save_as] = result

@@ -35,17 +35,43 @@ BASE_URL = "https://www.tui.nl"
 
 COOKIE_JS = """
 (() => {
-  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];
-  const nodes = Array.from(document.querySelectorAll('button, [role="button"], a'));
-  for (const el of nodes) {
-    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();
-    if (!t) continue;
-    if (labels.some((l) => t.includes(l))) {
-      el.click();
-      return 'clicked:' + t.slice(0, 48);
+  const labels = [
+    'accepteer cookies',
+    'alles accepteren',
+    'accept cookies',
+    'accept all',
+    'accepteer',
+    'accepteren',
+    'akkoord',
+    'agree',
+    'toestaan',
+  ];
+  const clickMatch = (root) => {
+    if (!root) return null;
+    const nodes = Array.from(root.querySelectorAll('button, [role="button"], a, input[type="button"], input[type="submit"]'));
+    for (const el of nodes) {
+      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')
+        .replace(/\\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+      if (!t) continue;
+      // Prefer exact-ish accept, never click Weigeren/Refuse
+      if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;
+      if (labels.some((l) => t === l || t.includes(l))) {
+        el.click();
+        return 'clicked:' + t.slice(0, 48);
+      }
     }
+    return null;
+  };
+  const dialogs = Array.from(
+    document.querySelectorAll('[role="dialog"], [aria-modal="true"], [class*="cookie" i], [class*="consent" i], [id*="cookie" i], [id*="consent" i]')
+  );
+  for (const d of dialogs) {
+    const hit = clickMatch(d);
+    if (hit) return hit;
   }
-  return 'no-banner';
+  return clickMatch(document.body) || 'no-banner';
 })()
 """
 
@@ -72,21 +98,34 @@ def _optional_click_js(label: str) -> str:
 """
 
 
+def _accept_cookies_steps(prefix: str = "") -> list[TestStep]:
+    """Privacy modal: 'Accepteer cookies' / 'Weigeren' — must accept before nav works."""
+    p = f"{prefix} " if prefix else ""
+    return [
+        _stp("ui.wait", f"{p}Wait for cookie dialog".strip(), {"ms": 2800}),
+        _stp(
+            "util.custom_js",
+            f"{p}Click Accepteer cookies".strip(),
+            {"script": COOKIE_JS},
+            "TUI modal 'We respecteren jouw privacy' — clicks Accepteer cookies, never Weigeren",
+        ),
+        _stp("ui.wait", f"{p}Settle after consent".strip(), {"ms": 1500}),
+    ]
+
+
 def build_core_smoke() -> list[TestStep]:
     return [
         _stp("ui.goto", "Open TUI homepage", {"url": "{{BASE_URL}}", "timeout_ms": 60000}),
-        _stp("ui.wait", "Wait for first paint", {"ms": 2000}),
-        _stp("util.custom_js", "Dismiss cookie banner if present", {"code": COOKIE_JS}),
-        _stp("ui.wait", "Settle after consent", {"ms": 1000}),
+        *_accept_cookies_steps(),
         _stp("assert.title_contains", "Title mentions TUI", {"text": "TUI", "timeout_ms": 20000}),
         _stp(
             "assert.text_contains",
             "Body mentions TUI / vakantie",
             {"selector": "body", "text": "TUI", "timeout_ms": 20000, "ignore_case": True},
         ),
-        _stp("util.custom_js", "Scroll below fold", {"code": "window.scrollBy(0, 1000);"}),
+        _stp("util.custom_js", "Scroll below fold", {"script": "window.scrollBy(0, 1000);"}),
         _stp("ui.wait", "Wait after scroll", {"ms": 800}),
-        _stp("util.custom_js", "Scroll further", {"code": "window.scrollBy(0, 1000);"}),
+        _stp("util.custom_js", "Scroll further", {"script": "window.scrollBy(0, 1000);"}),
         _stp("ui.wait", "Wait after second scroll", {"ms": 600}),
         _stp("assert.element_exists", "Document still responsive", {"selector": "body", "timeout_ms": 10000}),
         _stp("ui.screenshot", "Homepage screenshot", {"name": "tui_home"}),
@@ -95,34 +134,33 @@ def build_core_smoke() -> list[TestStep]:
 
 def build_nav_coverage() -> list[TestStep]:
     labels = [
-        "Vakantie",
-        "Stedentrip",
-        "Zonvakantie",
-        "Last minute",
-        "Bestemmingen",
-        "Inloggen",
-        "Help",
+        "Vakanties",
+        "Vliegtickets",
+        "Cruises",
         "Zoeken",
+        "Inloggen",
+        "Service & Contact",
+        "Bestemmingen",
+        "Last minute",
     ]
     steps = [
         _stp("ui.goto", "Open TUI homepage", {"url": "{{BASE_URL}}", "timeout_ms": 60000}),
-        _stp("ui.wait", "Wait for nav", {"ms": 1500}),
-        _stp("util.custom_js", "Dismiss cookies if present", {"code": COOKIE_JS}),
-        _stp("ui.wait", "Settle", {"ms": 800}),
+        *_accept_cookies_steps(),
     ]
     for label in labels:
         steps.append(
             _stp(
                 "util.custom_js",
                 f'Optional click "{label}"',
-                {"code": _optional_click_js(label)},
-                "Non-fatal if control missing (Akamai / A-B UI)",
+                {"script": _optional_click_js(label)},
+                "Non-fatal if control missing (A-B UI)",
             )
         )
         steps.append(_stp("ui.wait", f"After {label}", {"ms": 700}))
         steps.append(_stp("ui.goto", "Return home", {"url": "{{BASE_URL}}", "timeout_ms": 60000}))
         steps.append(_stp("ui.wait", "Home settle", {"ms": 900}))
-        steps.append(_stp("util.custom_js", "Cookies after return", {"code": COOKIE_JS}))
+        steps.append(_stp("util.custom_js", "Re-dismiss cookies if shown", {"script": COOKIE_JS}))
+        steps.append(_stp("ui.wait", "After re-dismiss", {"ms": 400}))
     steps.append(
         _stp(
             "assert.element_exists",
@@ -135,7 +173,6 @@ def build_nav_coverage() -> list[TestStep]:
 
 
 def build_search_coverage() -> list[TestStep]:
-    # Best-effort search interactions via JS (selectors change often on TUI)
     search_js = """
 (() => {
   const tryFill = (hints, value) => {
@@ -159,23 +196,17 @@ def build_search_coverage() -> list[TestStep]:
     }
     return 'no-field';
   };
-  const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad'], 'Spanje');
+  const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad', 'hotel'], 'Spanje');
   const b = tryFill(['vertrek', 'depart', 'date', 'datum'], '2026-10-01');
   return a + '|' + b;
 })()
 """
     return [
         _stp("ui.goto", "Open TUI homepage", {"url": "{{BASE_URL}}", "timeout_ms": 60000}),
-        _stp("ui.wait", "Wait for search UI", {"ms": 2000}),
-        _stp("util.custom_js", "Dismiss cookies", {"code": COOKIE_JS}),
-        _stp("ui.wait", "After cookies", {"ms": 800}),
-        _stp("util.custom_js", "Fill destination / date if present", {"code": search_js}),
+        *_accept_cookies_steps(),
+        _stp("util.custom_js", "Fill destination / date if present", {"script": search_js}),
         _stp("ui.wait", "After fill", {"ms": 500}),
-        _stp(
-            "util.custom_js",
-            "Click Zoeken if present",
-            {"code": _optional_click_js("Zoeken")},
-        ),
+        _stp("util.custom_js", "Click Zoeken if present", {"script": _optional_click_js("Zoeken")}),
         _stp("ui.wait", "Wait for search reaction", {"ms": 2000}),
         _stp(
             "assert.element_exists",
@@ -194,9 +225,7 @@ def build_landing_utm_smoke() -> list[TestStep]:
             {"url": "{{LANDING_URL}}", "timeout_ms": 60000},
             "Uses LANDING_URL from environment (UTM campaign link)",
         ),
-        _stp("ui.wait", "Wait for landing", {"ms": 2500}),
-        _stp("util.custom_js", "Dismiss cookies", {"code": COOKIE_JS}),
-        _stp("ui.wait", "Settle", {"ms": 1000}),
+        *_accept_cookies_steps(),
         _stp(
             "assert.element_exists",
             "Landing document loaded",
@@ -204,8 +233,8 @@ def build_landing_utm_smoke() -> list[TestStep]:
         ),
         _stp(
             "assert.text_contains",
-            "Page content present",
-            {"selector": "body", "text": " ", "timeout_ms": 10000, "ignore_case": True},
+            "Page shows TUI",
+            {"selector": "body", "text": "TUI", "timeout_ms": 15000, "ignore_case": True},
         ),
         _stp("ui.screenshot", "Landing screenshot", {"name": "tui_landing_utm"}),
     ]

@@ -33,8 +33,33 @@ START_URL = (
 )
 BASE_URL = "https://www.tui.nl"
 
-COOKIE_JS = """
-(() => {
+# Shared visibility helper — consent widgets often remain in DOM after dismiss.
+_IS_VISIBLE_JS = """
+  const isVisible = (el) => {
+    if (!el || !(el instanceof Element)) return false;
+    if (el.closest('[hidden], [aria-hidden="true"]')) return false;
+    if (typeof el.checkVisibility === 'function') {
+      try {
+        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+      } catch (e) { /* fall through */ }
+    }
+    const style = window.getComputedStyle(el);
+    if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
+      return false;
+    }
+    const r = el.getBoundingClientRect();
+    return r.width > 2 && r.height > 2;
+  };
+  const labelOf = (el) =>
+    (el.innerText || el.value || el.getAttribute('aria-label') || el.textContent || '')
+      .replace(/\\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+"""
+
+COOKIE_JS = f"""
+(() => {{
+{_IS_VISIBLE_JS}
   const labels = [
     'accepteer cookies',
     'alles accepteren',
@@ -46,97 +71,110 @@ COOKIE_JS = """
     'agree',
     'toestaan',
   ];
-  const bodyText = () => ((document.body && document.body.innerText) || '').toLowerCase();
-  const modalVisible = () => {
-    const t = bodyText();
-    if (t.includes('we respecteren jouw privacy')) return true;
+  const modalVisible = () => {{
+    const dialogs = Array.from(
+      document.querySelectorAll('[role="dialog"], [aria-modal="true"], [class*="cookie" i], [class*="consent" i], [id*="cookie" i], [id*="consent" i]')
+    );
+    for (const d of dialogs) {{
+      if (!isVisible(d)) continue;
+      const t = (d.innerText || '').toLowerCase();
+      if (t.includes('we respecteren jouw privacy') || t.includes('accepteer cookies')) return true;
+    }}
     const nodes = Array.from(document.querySelectorAll('button, [role="button"]'));
-    return nodes.some((el) => {
-      const s = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();
-      return s.includes('accepteer cookies');
-    });
-  };
-  const clickMatch = (root) => {
+    return nodes.some((el) => {{
+      if (!isVisible(el)) return false;
+      return labelOf(el).includes('accepteer cookies');
+    }});
+  }};
+  const clickMatch = (root) => {{
     if (!root) return null;
     const nodes = Array.from(root.querySelectorAll('button, [role="button"], a, input[type="button"], input[type="submit"]'));
-    for (const el of nodes) {
-      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')
-        .replace(/\\s+/g, ' ')
-        .trim()
-        .toLowerCase();
+    for (const el of nodes) {{
+      if (!isVisible(el)) continue;
+      const t = labelOf(el);
       if (!t) continue;
       if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;
-      if (labels.some((l) => t === l || t.includes(l))) {
+      if (labels.some((l) => t === l || t.includes(l))) {{
         el.click();
         return 'clicked:' + t.slice(0, 48);
-      }
-    }
+      }}
+    }}
     return null;
-  };
+  }};
   const dialogs = Array.from(
     document.querySelectorAll('[role="dialog"], [aria-modal="true"], [class*="cookie" i], [class*="consent" i], [id*="cookie" i], [id*="consent" i]')
   );
   let hit = null;
-  for (const d of dialogs) {
+  for (const d of dialogs) {{
     hit = clickMatch(d);
     if (hit) break;
-  }
+  }}
   if (!hit) hit = clickMatch(document.body);
   if (hit) return hit;
-  if (modalVisible()) {
+  if (modalVisible()) {{
     throw new Error('Cookie privacy modal still visible — failed to click Accepteer cookies');
-  }
+  }}
   return 'no-banner';
-})()
+}})()
 """
 
 # Soft variant for return-home loops (do not fail if banner already gone)
-COOKIE_JS_SOFT = """
-(() => {
+COOKIE_JS_SOFT = f"""
+(() => {{
+{_IS_VISIBLE_JS}
   const labels = [
     'accepteer cookies', 'alles accepteren', 'accept cookies', 'accept all',
     'accepteer', 'accepteren', 'akkoord', 'agree', 'toestaan',
   ];
-  const clickMatch = (root) => {
+  const clickMatch = (root) => {{
     if (!root) return 'no-banner';
     const nodes = Array.from(root.querySelectorAll('button, [role="button"], a, input[type="button"], input[type="submit"]'));
-    for (const el of nodes) {
-      const t = (el.innerText || el.value || el.getAttribute('aria-label') || '')
-        .replace(/\\s+/g, ' ').trim().toLowerCase();
+    for (const el of nodes) {{
+      if (!isVisible(el)) continue;
+      const t = labelOf(el);
       if (!t) continue;
       if (t.includes('weiger') || t.includes('refus') || t.includes('decline') || t.includes('reject')) continue;
-      if (labels.some((l) => t === l || t.includes(l))) {
+      if (labels.some((l) => t === l || t.includes(l))) {{
         el.click();
         return 'clicked:' + t.slice(0, 48);
-      }
-    }
+      }}
+    }}
     return 'no-banner';
-  };
+  }};
   const dialogs = Array.from(
     document.querySelectorAll('[role="dialog"], [aria-modal="true"], [class*="cookie" i], [class*="consent" i], [id*="cookie" i], [id*="consent" i]')
   );
-  for (const d of dialogs) {
+  for (const d of dialogs) {{
     const hit = clickMatch(d);
     if (hit.startsWith('clicked:')) return hit;
-  }
+  }}
   return clickMatch(document.body);
-})()
+}})()
 """
 
-ASSERT_MODAL_GONE_JS = """
-(() => {
-  const t = ((document.body && document.body.innerText) || '').toLowerCase();
-  if (t.includes('we respecteren jouw privacy')) {
-    throw new Error('Privacy cookie modal still blocking the page');
-  }
+ASSERT_MODAL_GONE_JS = f"""
+(() => {{
+{_IS_VISIBLE_JS}
+  // Only fail when the privacy UI is actually on-screen.
+  // Consent SDKs often leave "Accepteer cookies" nodes in the DOM after dismiss.
+  const dialogs = Array.from(
+    document.querySelectorAll('[role="dialog"], [aria-modal="true"], [class*="cookie" i], [class*="consent" i], [id*="cookie" i], [id*="consent" i]')
+  );
+  for (const d of dialogs) {{
+    if (!isVisible(d)) continue;
+    const t = (d.innerText || '').toLowerCase();
+    if (t.includes('we respecteren jouw privacy')) {{
+      throw new Error('Privacy cookie modal still blocking the page');
+    }}
+  }}
   const nodes = Array.from(document.querySelectorAll('button, [role="button"]'));
-  const still = nodes.some((el) => {
-    const s = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();
-    return s.includes('accepteer cookies');
-  });
+  const still = nodes.some((el) => {{
+    if (!isVisible(el)) return false;
+    return labelOf(el).includes('accepteer cookies');
+  }});
   if (still) throw new Error('Accepteer cookies button still visible');
   return 'modal-gone';
-})()
+}})()
 """
 
 

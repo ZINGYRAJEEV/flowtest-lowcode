@@ -1,0 +1,91 @@
+{
+  "id": "tst_e933d388f2",
+  "name": "Smoke: Campaign landing (UTM)",
+  "description": "Opens the provided admarketplace landing URL via {{LANDING_URL}} and checks the page loads.",
+  "tags": [
+    "smoke",
+    "ui",
+    "tui",
+    "utm",
+    "coverage"
+  ],
+  "suite": "UI Coverage",
+  "version": 1,
+  "steps": [
+    {
+      "id": "stp_235e1e5ec4",
+      "type": "ui.goto",
+      "name": "Open campaign landing URL",
+      "config": {
+        "url": "{{LANDING_URL}}",
+        "timeout_ms": 60000
+      },
+      "enabled": true,
+      "notes": "Uses LANDING_URL from environment (UTM campaign link)"
+    },
+    {
+      "id": "stp_7b220ba5f9",
+      "type": "ui.wait",
+      "name": "Wait for landing",
+      "config": {
+        "ms": 2500
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_bc9cdb9b88",
+      "type": "util.custom_js",
+      "name": "Dismiss cookies",
+      "config": {
+        "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_201cf1c529",
+      "type": "ui.wait",
+      "name": "Settle",
+      "config": {
+        "ms": 1000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_7f0d7d0d4c",
+      "type": "assert.element_exists",
+      "name": "Landing document loaded",
+      "config": {
+        "selector": "body",
+        "timeout_ms": 15000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_fdd28c6e96",
+      "type": "assert.text_contains",
+      "name": "Page content present",
+      "config": {
+        "selector": "body",
+        "text": " ",
+        "timeout_ms": 10000,
+        "ignore_case": true
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_54c6518292",
+      "type": "ui.screenshot",
+      "name": "Landing screenshot",
+      "config": {
+        "name": "tui_landing_utm"
+      },
+      "enabled": true,
+      "notes": ""
+    }
+  ]
+}

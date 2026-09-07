@@ -41,6 +41,12 @@ from flowtest.storage import (
 )
 
 init_db()
+try:
+    from flowtest.bootstrap_suites import ensure_bundled_projects
+
+    ensure_bundled_projects()
+except Exception:
+    pass
 
 st.set_page_config(
     page_title="FlowTest",

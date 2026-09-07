@@ -1,0 +1,141 @@
+{
+  "id": "tst_6341515090",
+  "name": "Smoke: TUI homepage load & brand",
+  "description": "Opens tui.nl, dismisses cookies if present, asserts TUI branding, scrolls, screenshots.",
+  "tags": [
+    "smoke",
+    "ui",
+    "tui",
+    "coverage"
+  ],
+  "suite": "UI Coverage",
+  "version": 2,
+  "steps": [
+    {
+      "id": "stp_0dfed2fd4c",
+      "type": "ui.goto",
+      "name": "Open TUI homepage",
+      "config": {
+        "url": "{{BASE_URL}}",
+        "timeout_ms": 60000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_c4f2f844ee",
+      "type": "ui.wait",
+      "name": "Wait for first paint",
+      "config": {
+        "ms": 2000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_836b1aacc8",
+      "type": "util.custom_js",
+      "name": "Dismiss cookie banner if present",
+      "config": {
+        "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_d9bae4c08f",
+      "type": "ui.wait",
+      "name": "Settle after consent",
+      "config": {
+        "ms": 1000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_4ceb7e342d",
+      "type": "assert.title_contains",
+      "name": "Title mentions TUI",
+      "config": {
+        "text": "TUI",
+        "timeout_ms": 20000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_94d06eecfe",
+      "type": "assert.text_contains",
+      "name": "Body mentions TUI / vakantie",
+      "config": {
+        "selector": "body",
+        "text": "TUI",
+        "timeout_ms": 20000,
+        "ignore_case": true
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_8542c7d8a7",
+      "type": "util.custom_js",
+      "name": "Scroll below fold",
+      "config": {
+        "code": "window.scrollBy(0, 1000);"
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_c40a439235",
+      "type": "ui.wait",
+      "name": "Wait after scroll",
+      "config": {
+        "ms": 800
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_caa10a0bfd",
+      "type": "util.custom_js",
+      "name": "Scroll further",
+      "config": {
+        "code": "window.scrollBy(0, 1000);"
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_355f6118d8",
+      "type": "ui.wait",
+      "name": "Wait after second scroll",
+      "config": {
+        "ms": 600
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_c8646b95a3",
+      "type": "assert.element_exists",
+      "name": "Document still responsive",
+      "config": {
+        "selector": "body",
+        "timeout_ms": 10000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_9a25efbaa1",
+      "type": "ui.screenshot",
+      "name": "Homepage screenshot",
+      "config": {
+        "name": "tui_home"
+      },
+      "enabled": true,
+      "notes": ""
+    }
+  ]
+}

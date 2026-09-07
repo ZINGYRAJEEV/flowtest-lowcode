@@ -1,0 +1,845 @@
+{
+  "format": "flowtest-suite/v1",
+  "exported_at": "2026-09-07T08:10:16Z",
+  "project_id": "prj_5aa1d5ded1",
+  "project_name": "TUI",
+  "suite": "UI Coverage",
+  "environment_hint": "TUI Prod",
+  "tests": [
+    {
+      "id": "tst_685fa3507a",
+      "name": "Coverage: TUI navigation & CTAs",
+      "description": "Optional clicks on common Dutch nav/CTA labels; returns home between attempts.",
+      "tags": [
+        "ui",
+        "nav",
+        "tui",
+        "coverage"
+      ],
+      "suite": "UI Coverage",
+      "version": 2,
+      "steps": [
+        {
+          "id": "stp_70970f64aa",
+          "type": "ui.goto",
+          "name": "Open TUI homepage",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_9325f74c2a",
+          "type": "ui.wait",
+          "name": "Wait for nav",
+          "config": {
+            "ms": 1500
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_6333e43c76",
+          "type": "util.custom_js",
+          "name": "Dismiss cookies if present",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_0e6d890339",
+          "type": "ui.wait",
+          "name": "Settle",
+          "config": {
+            "ms": 800
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_1f7d7e0e27",
+          "type": "util.custom_js",
+          "name": "Optional click \"Vakantie\"",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Vakantie'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": "Non-fatal if control missing (Akamai / A-B UI)"
+        },
+        {
+          "id": "stp_de2c3feeea",
+          "type": "ui.wait",
+          "name": "After Vakantie",
+          "config": {
+            "ms": 700
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_1d5067b2b5",
+          "type": "ui.goto",
+          "name": "Return home",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_cdb7828ae6",
+          "type": "ui.wait",
+          "name": "Home settle",
+          "config": {
+            "ms": 900
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_b45c1d17c0",
+          "type": "util.custom_js",
+          "name": "Cookies after return",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_f8fcb2bbdc",
+          "type": "util.custom_js",
+          "name": "Optional click \"Stedentrip\"",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Stedentrip'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": "Non-fatal if control missing (Akamai / A-B UI)"
+        },
+        {
+          "id": "stp_ae268ecfbf",
+          "type": "ui.wait",
+          "name": "After Stedentrip",
+          "config": {
+            "ms": 700
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_dc1ba4e52e",
+          "type": "ui.goto",
+          "name": "Return home",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_f6797ffa6b",
+          "type": "ui.wait",
+          "name": "Home settle",
+          "config": {
+            "ms": 900
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_677e9292ab",
+          "type": "util.custom_js",
+          "name": "Cookies after return",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_f6ae34367c",
+          "type": "util.custom_js",
+          "name": "Optional click \"Zonvakantie\"",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Zonvakantie'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": "Non-fatal if control missing (Akamai / A-B UI)"
+        },
+        {
+          "id": "stp_8d69c25ada",
+          "type": "ui.wait",
+          "name": "After Zonvakantie",
+          "config": {
+            "ms": 700
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_239bc28ea5",
+          "type": "ui.goto",
+          "name": "Return home",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_f813e2e47d",
+          "type": "ui.wait",
+          "name": "Home settle",
+          "config": {
+            "ms": 900
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_bbf7718a7d",
+          "type": "util.custom_js",
+          "name": "Cookies after return",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_c23f41562f",
+          "type": "util.custom_js",
+          "name": "Optional click \"Last minute\"",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Last minute'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": "Non-fatal if control missing (Akamai / A-B UI)"
+        },
+        {
+          "id": "stp_01df929c4c",
+          "type": "ui.wait",
+          "name": "After Last minute",
+          "config": {
+            "ms": 700
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_3dcc5b1212",
+          "type": "ui.goto",
+          "name": "Return home",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_3a083a09a9",
+          "type": "ui.wait",
+          "name": "Home settle",
+          "config": {
+            "ms": 900
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_fc754d74c2",
+          "type": "util.custom_js",
+          "name": "Cookies after return",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_ee008b9d51",
+          "type": "util.custom_js",
+          "name": "Optional click \"Bestemmingen\"",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Bestemmingen'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": "Non-fatal if control missing (Akamai / A-B UI)"
+        },
+        {
+          "id": "stp_1f27f4627c",
+          "type": "ui.wait",
+          "name": "After Bestemmingen",
+          "config": {
+            "ms": 700
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_60ba7d1210",
+          "type": "ui.goto",
+          "name": "Return home",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_d1e559de66",
+          "type": "ui.wait",
+          "name": "Home settle",
+          "config": {
+            "ms": 900
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_50db436ca1",
+          "type": "util.custom_js",
+          "name": "Cookies after return",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_4ad6121d35",
+          "type": "util.custom_js",
+          "name": "Optional click \"Inloggen\"",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Inloggen'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": "Non-fatal if control missing (Akamai / A-B UI)"
+        },
+        {
+          "id": "stp_bdd2df49c3",
+          "type": "ui.wait",
+          "name": "After Inloggen",
+          "config": {
+            "ms": 700
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_41ed84e032",
+          "type": "ui.goto",
+          "name": "Return home",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_cf0dee5179",
+          "type": "ui.wait",
+          "name": "Home settle",
+          "config": {
+            "ms": 900
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_dc04074056",
+          "type": "util.custom_js",
+          "name": "Cookies after return",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_fa6c5d9e24",
+          "type": "util.custom_js",
+          "name": "Optional click \"Help\"",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Help'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": "Non-fatal if control missing (Akamai / A-B UI)"
+        },
+        {
+          "id": "stp_7d482a659e",
+          "type": "ui.wait",
+          "name": "After Help",
+          "config": {
+            "ms": 700
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_8757edd2de",
+          "type": "ui.goto",
+          "name": "Return home",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_20632824e4",
+          "type": "ui.wait",
+          "name": "Home settle",
+          "config": {
+            "ms": 900
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_2aa48fa0df",
+          "type": "util.custom_js",
+          "name": "Cookies after return",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_e82a761a17",
+          "type": "util.custom_js",
+          "name": "Optional click \"Zoeken\"",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Zoeken'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": "Non-fatal if control missing (Akamai / A-B UI)"
+        },
+        {
+          "id": "stp_67a6f31844",
+          "type": "ui.wait",
+          "name": "After Zoeken",
+          "config": {
+            "ms": 700
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_ef41e43a78",
+          "type": "ui.goto",
+          "name": "Return home",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_33d093c1f9",
+          "type": "ui.wait",
+          "name": "Home settle",
+          "config": {
+            "ms": 900
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_46f43ad066",
+          "type": "util.custom_js",
+          "name": "Cookies after return",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_a1aaa59d89",
+          "type": "assert.element_exists",
+          "name": "Home still loads after nav trail",
+          "config": {
+            "selector": "body",
+            "timeout_ms": 10000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_0a5908fb34",
+          "type": "ui.screenshot",
+          "name": "After nav coverage",
+          "config": {
+            "name": "tui_nav"
+          },
+          "enabled": true,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "tst_7dd73062c7",
+      "name": "Coverage: TUI search / form fields",
+      "description": "Best-effort fill of destination/date fields and Zoeken click via resilient JS helpers.",
+      "tags": [
+        "ui",
+        "search",
+        "form",
+        "tui",
+        "coverage"
+      ],
+      "suite": "UI Coverage",
+      "version": 2,
+      "steps": [
+        {
+          "id": "stp_9d068f4725",
+          "type": "ui.goto",
+          "name": "Open TUI homepage",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_213b61a1d1",
+          "type": "ui.wait",
+          "name": "Wait for search UI",
+          "config": {
+            "ms": 2000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_1cc9adc163",
+          "type": "util.custom_js",
+          "name": "Dismiss cookies",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_7fdfbbfabf",
+          "type": "ui.wait",
+          "name": "After cookies",
+          "config": {
+            "ms": 800
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_ccde181fbb",
+          "type": "util.custom_js",
+          "name": "Fill destination / date if present",
+          "config": {
+            "code": "\n(() => {\n  const tryFill = (hints, value) => {\n    const inputs = Array.from(document.querySelectorAll('input, textarea, [contenteditable=\"true\"]'));\n    for (const el of inputs) {\n      const meta = [\n        el.getAttribute('name') || '',\n        el.getAttribute('placeholder') || '',\n        el.getAttribute('aria-label') || '',\n        el.id || '',\n      ].join(' ').toLowerCase();\n      if (!hints.some((h) => meta.includes(h))) continue;\n      if (el.isContentEditable) { el.textContent = value; }\n      else {\n        el.focus();\n        el.value = value;\n        el.dispatchEvent(new Event('input', { bubbles: true }));\n        el.dispatchEvent(new Event('change', { bubbles: true }));\n      }\n      return 'filled:' + meta.slice(0, 40);\n    }\n    return 'no-field';\n  };\n  const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad'], 'Spanje');\n  const b = tryFill(['vertrek', 'depart', 'date', 'datum'], '2026-10-01');\n  return a + '|' + b;\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_abcde5f4e4",
+          "type": "ui.wait",
+          "name": "After fill",
+          "config": {
+            "ms": 500
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_3bf6722a4c",
+          "type": "util.custom_js",
+          "name": "Click Zoeken if present",
+          "config": {
+            "code": "\n(() => {\n  const want = 'Zoeken'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_76315f02cd",
+          "type": "ui.wait",
+          "name": "Wait for search reaction",
+          "config": {
+            "ms": 2000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_5cad46da12",
+          "type": "assert.element_exists",
+          "name": "Page responsive after search interaction",
+          "config": {
+            "selector": "body",
+            "timeout_ms": 10000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_caa511a92b",
+          "type": "ui.screenshot",
+          "name": "After search interaction",
+          "config": {
+            "name": "tui_search"
+          },
+          "enabled": true,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "tst_e933d388f2",
+      "name": "Smoke: Campaign landing (UTM)",
+      "description": "Opens the provided admarketplace landing URL via {{LANDING_URL}} and checks the page loads.",
+      "tags": [
+        "smoke",
+        "ui",
+        "tui",
+        "utm",
+        "coverage"
+      ],
+      "suite": "UI Coverage",
+      "version": 1,
+      "steps": [
+        {
+          "id": "stp_235e1e5ec4",
+          "type": "ui.goto",
+          "name": "Open campaign landing URL",
+          "config": {
+            "url": "{{LANDING_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": "Uses LANDING_URL from environment (UTM campaign link)"
+        },
+        {
+          "id": "stp_7b220ba5f9",
+          "type": "ui.wait",
+          "name": "Wait for landing",
+          "config": {
+            "ms": 2500
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_bc9cdb9b88",
+          "type": "util.custom_js",
+          "name": "Dismiss cookies",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_201cf1c529",
+          "type": "ui.wait",
+          "name": "Settle",
+          "config": {
+            "ms": 1000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_7f0d7d0d4c",
+          "type": "assert.element_exists",
+          "name": "Landing document loaded",
+          "config": {
+            "selector": "body",
+            "timeout_ms": 15000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_fdd28c6e96",
+          "type": "assert.text_contains",
+          "name": "Page content present",
+          "config": {
+            "selector": "body",
+            "text": " ",
+            "timeout_ms": 10000,
+            "ignore_case": true
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_54c6518292",
+          "type": "ui.screenshot",
+          "name": "Landing screenshot",
+          "config": {
+            "name": "tui_landing_utm"
+          },
+          "enabled": true,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "tst_6341515090",
+      "name": "Smoke: TUI homepage load & brand",
+      "description": "Opens tui.nl, dismisses cookies if present, asserts TUI branding, scrolls, screenshots.",
+      "tags": [
+        "smoke",
+        "ui",
+        "tui",
+        "coverage"
+      ],
+      "suite": "UI Coverage",
+      "version": 2,
+      "steps": [
+        {
+          "id": "stp_0dfed2fd4c",
+          "type": "ui.goto",
+          "name": "Open TUI homepage",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 60000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_c4f2f844ee",
+          "type": "ui.wait",
+          "name": "Wait for first paint",
+          "config": {
+            "ms": 2000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_836b1aacc8",
+          "type": "util.custom_js",
+          "name": "Dismiss cookie banner if present",
+          "config": {
+            "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_d9bae4c08f",
+          "type": "ui.wait",
+          "name": "Settle after consent",
+          "config": {
+            "ms": 1000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_4ceb7e342d",
+          "type": "assert.title_contains",
+          "name": "Title mentions TUI",
+          "config": {
+            "text": "TUI",
+            "timeout_ms": 20000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_94d06eecfe",
+          "type": "assert.text_contains",
+          "name": "Body mentions TUI / vakantie",
+          "config": {
+            "selector": "body",
+            "text": "TUI",
+            "timeout_ms": 20000,
+            "ignore_case": true
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_8542c7d8a7",
+          "type": "util.custom_js",
+          "name": "Scroll below fold",
+          "config": {
+            "code": "window.scrollBy(0, 1000);"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_c40a439235",
+          "type": "ui.wait",
+          "name": "Wait after scroll",
+          "config": {
+            "ms": 800
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_caa10a0bfd",
+          "type": "util.custom_js",
+          "name": "Scroll further",
+          "config": {
+            "code": "window.scrollBy(0, 1000);"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_355f6118d8",
+          "type": "ui.wait",
+          "name": "Wait after second scroll",
+          "config": {
+            "ms": 600
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_c8646b95a3",
+          "type": "assert.element_exists",
+          "name": "Document still responsive",
+          "config": {
+            "selector": "body",
+            "timeout_ms": 10000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_9a25efbaa1",
+          "type": "ui.screenshot",
+          "name": "Homepage screenshot",
+          "config": {
+            "name": "tui_home"
+          },
+          "enabled": true,
+          "notes": ""
+        }
+      ]
+    }
+  ]
+}

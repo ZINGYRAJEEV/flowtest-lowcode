@@ -1,0 +1,118 @@
+{
+  "id": "tst_7dd73062c7",
+  "name": "Coverage: TUI search / form fields",
+  "description": "Best-effort fill of destination/date fields and Zoeken click via resilient JS helpers.",
+  "tags": [
+    "ui",
+    "search",
+    "form",
+    "tui",
+    "coverage"
+  ],
+  "suite": "UI Coverage",
+  "version": 2,
+  "steps": [
+    {
+      "id": "stp_9d068f4725",
+      "type": "ui.goto",
+      "name": "Open TUI homepage",
+      "config": {
+        "url": "{{BASE_URL}}",
+        "timeout_ms": 60000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_213b61a1d1",
+      "type": "ui.wait",
+      "name": "Wait for search UI",
+      "config": {
+        "ms": 2000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_1cc9adc163",
+      "type": "util.custom_js",
+      "name": "Dismiss cookies",
+      "config": {
+        "code": "\n(() => {\n  const labels = ['alles accepteren', 'accepteren', 'accept all', 'akkoord', 'agree', 'toestaan'];\n  const nodes = Array.from(document.querySelectorAll('button, [role=\"button\"], a'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim().toLowerCase();\n    if (!t) continue;\n    if (labels.some((l) => t.includes(l))) {\n      el.click();\n      return 'clicked:' + t.slice(0, 48);\n    }\n  }\n  return 'no-banner';\n})()\n"
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_7fdfbbfabf",
+      "type": "ui.wait",
+      "name": "After cookies",
+      "config": {
+        "ms": 800
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_ccde181fbb",
+      "type": "util.custom_js",
+      "name": "Fill destination / date if present",
+      "config": {
+        "code": "\n(() => {\n  const tryFill = (hints, value) => {\n    const inputs = Array.from(document.querySelectorAll('input, textarea, [contenteditable=\"true\"]'));\n    for (const el of inputs) {\n      const meta = [\n        el.getAttribute('name') || '',\n        el.getAttribute('placeholder') || '',\n        el.getAttribute('aria-label') || '',\n        el.id || '',\n      ].join(' ').toLowerCase();\n      if (!hints.some((h) => meta.includes(h))) continue;\n      if (el.isContentEditable) { el.textContent = value; }\n      else {\n        el.focus();\n        el.value = value;\n        el.dispatchEvent(new Event('input', { bubbles: true }));\n        el.dispatchEvent(new Event('change', { bubbles: true }));\n      }\n      return 'filled:' + meta.slice(0, 40);\n    }\n    return 'no-field';\n  };\n  const a = tryFill(['bestemming', 'destination', 'waarheen', 'zoek', 'search', 'stad'], 'Spanje');\n  const b = tryFill(['vertrek', 'depart', 'date', 'datum'], '2026-10-01');\n  return a + '|' + b;\n})()\n"
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_abcde5f4e4",
+      "type": "ui.wait",
+      "name": "After fill",
+      "config": {
+        "ms": 500
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_3bf6722a4c",
+      "type": "util.custom_js",
+      "name": "Click Zoeken if present",
+      "config": {
+        "code": "\n(() => {\n  const want = 'Zoeken'.toLowerCase();\n  const nodes = Array.from(document.querySelectorAll('a, button, [role=\"button\"], [role=\"link\"]'));\n  for (const el of nodes) {\n    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();\n    if (t && t.toLowerCase().includes(want)) {\n      el.click();\n      return 'clicked:' + t.slice(0, 60);\n    }\n  }\n  return 'missing';\n})()\n"
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_76315f02cd",
+      "type": "ui.wait",
+      "name": "Wait for search reaction",
+      "config": {
+        "ms": 2000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_5cad46da12",
+      "type": "assert.element_exists",
+      "name": "Page responsive after search interaction",
+      "config": {
+        "selector": "body",
+        "timeout_ms": 10000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_caa511a92b",
+      "type": "ui.screenshot",
+      "name": "After search interaction",
+      "config": {
+        "name": "tui_search"
+      },
+      "enabled": true,
+      "notes": ""
+    }
+  ]
+}

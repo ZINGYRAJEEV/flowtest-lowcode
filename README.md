@@ -19,6 +19,16 @@ streamlit run app.py
 
 Opens with **no login** (open access for now).
 
+## MCP (Cursor / AI agents)
+
+Optional local MCP server so Cursor can list/run tests and import recordings:
+
+```bash
+pip install -r requirements-mcp.txt
+```
+
+See [docs/MCP.md](docs/MCP.md) and `.cursor/mcp.json`.
+
 ## CI / Pipelines
 
 In the app: **CI / Pipelines** → select suite + environment → **Generate CI scripts**.

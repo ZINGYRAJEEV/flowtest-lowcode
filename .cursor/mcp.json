@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "flowtest": {
+      "command": "python",
+      "args": ["-m", "flowtest.mcp_server"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

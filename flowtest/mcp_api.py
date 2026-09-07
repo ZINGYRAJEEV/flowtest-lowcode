@@ -328,3 +328,93 @@ def tool_list_suite_files() -> list[dict[str, Any]]:
         except Exception as exc:
             out.append({"path": str(path), "relative": rel, "error": str(exc)})
     return out
+
+
+def tool_desktop_list_windows(limit: int = 40) -> dict[str, Any]:
+    """List visible desktop window titles (Windows local)."""
+    try:
+        from flowtest import desktop_actions as desktop
+
+        return {"ok": True, "windows": desktop.list_windows(limit=limit)}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def tool_desktop_focus_window(title: str, timeout_ms: int = 15000) -> dict[str, Any]:
+    try:
+        from flowtest import desktop_actions as desktop
+
+        return {"ok": True, "detail": desktop.focus_window(title=title, timeout_ms=timeout_ms)}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def tool_desktop_click(
+    name: str = "",
+    window_title: str = "",
+    control_type: str = "",
+    auto_id: str = "",
+    timeout_ms: int = 15000,
+) -> dict[str, Any]:
+    try:
+        from flowtest import desktop_actions as desktop
+
+        return {
+            "ok": True,
+            "detail": desktop.click_control(
+                name=name,
+                window_title=window_title,
+                control_type=control_type,
+                auto_id=auto_id,
+                timeout_ms=timeout_ms,
+            ),
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def tool_desktop_type_text(
+    text: str,
+    window_title: str = "",
+    name: str = "",
+    control_type: str = "",
+    auto_id: str = "",
+    clear: bool = False,
+    timeout_ms: int = 15000,
+) -> dict[str, Any]:
+    try:
+        from flowtest import desktop_actions as desktop
+
+        return {
+            "ok": True,
+            "detail": desktop.type_text(
+                text=text,
+                window_title=window_title,
+                name=name,
+                control_type=control_type,
+                auto_id=auto_id,
+                clear=clear,
+                timeout_ms=timeout_ms,
+            ),
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def tool_desktop_send_keys(keys: str, window_title: str = "") -> dict[str, Any]:
+    try:
+        from flowtest import desktop_actions as desktop
+
+        return {"ok": True, "detail": desktop.send_keys(keys=keys, window_title=window_title)}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def tool_desktop_screenshot(label: str = "desktop") -> dict[str, Any]:
+    try:
+        from flowtest import desktop_actions as desktop
+
+        path = desktop.screenshot(label=label)
+        return {"ok": True, "path": path}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}

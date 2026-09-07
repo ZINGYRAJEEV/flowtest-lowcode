@@ -1,5 +1,5 @@
 """
-FlowTest — execution engine for UI (Playwright), API (httpx), and data steps.
+FlowTest — execution engine for UI (Playwright), Desktop (Windows), API (httpx), and data steps.
 Runs in an isolated process when called from Streamlit on Windows.
 """
 
@@ -71,6 +71,7 @@ from flowtest.ui_actions import (
     smart_wait_for as _smart_wait_for,
     ui_timeout as _ui_timeout,
 )
+from flowtest import desktop_actions as _desktop
 
 
 def _run_sql(dsn: str, sql: str) -> list[dict[str, Any]]:
@@ -496,6 +497,61 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
                 raise RuntimeError(
                     f"JS result unexpectedly contained {fail_if_contains!r} (got {result_s[:200]!r})"
                 )
+
+        elif stype == "desktop.focus_window":
+            detail = _desktop.focus_window(
+                title=str(cfg.get("title") or ""),
+                timeout_ms=int(cfg.get("timeout_ms") or 15000),
+            )
+            variables["_desktop_window"] = str(cfg.get("title") or "")
+
+        elif stype == "desktop.click":
+            detail = _desktop.click_control(
+                name=str(cfg.get("name") or ""),
+                window_title=str(cfg.get("window_title") or variables.get("_desktop_window") or ""),
+                control_type=str(cfg.get("control_type") or ""),
+                auto_id=str(cfg.get("auto_id") or ""),
+                timeout_ms=int(cfg.get("timeout_ms") or 15000),
+            )
+
+        elif stype == "desktop.type_text":
+            detail = _desktop.type_text(
+                text=str(cfg.get("text") or ""),
+                window_title=str(cfg.get("window_title") or variables.get("_desktop_window") or ""),
+                name=str(cfg.get("name") or ""),
+                control_type=str(cfg.get("control_type") or ""),
+                auto_id=str(cfg.get("auto_id") or ""),
+                clear=bool(cfg.get("clear", False)),
+                timeout_ms=int(cfg.get("timeout_ms") or 15000),
+            )
+
+        elif stype == "desktop.send_keys":
+            detail = _desktop.send_keys(
+                keys=str(cfg.get("keys") or ""),
+                window_title=str(cfg.get("window_title") or variables.get("_desktop_window") or ""),
+            )
+
+        elif stype == "desktop.wait":
+            detail = _desktop.wait_ms(int(cfg.get("ms") or 1000))
+
+        elif stype == "desktop.screenshot":
+            screenshot = _desktop.screenshot(label=str(cfg.get("label") or "desktop"))
+            detail = f"Desktop screenshot → {screenshot}"
+
+        elif stype == "assert.desktop_window":
+            detail = _desktop.assert_window(
+                title=str(cfg.get("title") or ""),
+                timeout_ms=int(cfg.get("timeout_ms") or 10000),
+            )
+
+        elif stype == "assert.desktop_control":
+            detail = _desktop.assert_control(
+                name=str(cfg.get("name") or ""),
+                window_title=str(cfg.get("window_title") or variables.get("_desktop_window") or ""),
+                control_type=str(cfg.get("control_type") or ""),
+                auto_id=str(cfg.get("auto_id") or ""),
+                timeout_ms=int(cfg.get("timeout_ms") or 10000),
+            )
 
         else:
             raise RuntimeError(f"Unknown step type: {stype}")

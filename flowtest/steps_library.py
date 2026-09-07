@@ -130,6 +130,108 @@ STEP_LIBRARY: list[dict[str, Any]] = [
             {"key": "label", "label": "Label", "kind": "text", "default": "checkpoint"},
         ],
     },
+    # Desktop (Windows local only — pip install -r requirements-desktop.txt)
+    {
+        "type": "desktop.focus_window",
+        "category": "desktop",
+        "label": "Focus window",
+        "description": "Bring a desktop app window to the front by title (Windows, local only).",
+        "fields": [
+            {"key": "title", "label": "Window title contains", "kind": "text", "default": "Notepad"},
+            {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 15000},
+        ],
+    },
+    {
+        "type": "desktop.click",
+        "category": "desktop",
+        "label": "Click desktop control",
+        "description": "Click a button/menu/control by name or AutomationId (Windows UI Automation).",
+        "fields": [
+            {"key": "window_title", "label": "Window title contains", "kind": "text", "default": ""},
+            {"key": "name", "label": "Control name / text", "kind": "text", "default": ""},
+            {"key": "auto_id", "label": "AutomationId (optional)", "kind": "text", "default": ""},
+            {
+                "key": "control_type",
+                "label": "Control type",
+                "kind": "select",
+                "options": ["", "Button", "Edit", "MenuItem", "TabItem", "ListItem", "CheckBox", "ComboBox", "Text"],
+                "default": "Button",
+            },
+            {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 15000},
+        ],
+    },
+    {
+        "type": "desktop.type_text",
+        "category": "desktop",
+        "label": "Type into desktop",
+        "description": "Type text into the focused window or a named control.",
+        "fields": [
+            {"key": "text", "label": "Text", "kind": "text", "default": ""},
+            {"key": "window_title", "label": "Window title contains", "kind": "text", "default": ""},
+            {"key": "name", "label": "Control name (optional)", "kind": "text", "default": ""},
+            {"key": "auto_id", "label": "AutomationId (optional)", "kind": "text", "default": ""},
+            {"key": "control_type", "label": "Control type", "kind": "select", "options": ["", "Edit", "Document"], "default": "Edit"},
+            {"key": "clear", "label": "Clear first", "kind": "bool", "default": False},
+            {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 15000},
+        ],
+    },
+    {
+        "type": "desktop.send_keys",
+        "category": "desktop",
+        "label": "Send desktop keys",
+        "description": "Hotkeys / special keys (e.g. ^s save, {ENTER}, %{F4}).",
+        "fields": [
+            {"key": "keys", "label": "Keys", "kind": "text", "default": "{ENTER}"},
+            {"key": "window_title", "label": "Window title contains", "kind": "text", "default": ""},
+        ],
+    },
+    {
+        "type": "desktop.wait",
+        "category": "desktop",
+        "label": "Desktop wait (ms)",
+        "description": "Fixed wait between desktop actions.",
+        "fields": [
+            {"key": "ms", "label": "Milliseconds", "kind": "number", "default": 1000},
+        ],
+    },
+    {
+        "type": "desktop.screenshot",
+        "category": "desktop",
+        "label": "Desktop screenshot",
+        "description": "Capture the full desktop screen (local Windows).",
+        "fields": [
+            {"key": "label", "label": "Label", "kind": "text", "default": "desktop"},
+        ],
+    },
+    {
+        "type": "assert.desktop_window",
+        "category": "desktop",
+        "label": "Assert desktop window",
+        "description": "Fail unless a window title matching text is present.",
+        "fields": [
+            {"key": "title", "label": "Window title contains", "kind": "text", "default": ""},
+            {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 10000},
+        ],
+    },
+    {
+        "type": "assert.desktop_control",
+        "category": "desktop",
+        "label": "Assert desktop control",
+        "description": "Fail unless a named control exists in the window.",
+        "fields": [
+            {"key": "window_title", "label": "Window title contains", "kind": "text", "default": ""},
+            {"key": "name", "label": "Control name / text", "kind": "text", "default": ""},
+            {"key": "auto_id", "label": "AutomationId (optional)", "kind": "text", "default": ""},
+            {
+                "key": "control_type",
+                "label": "Control type",
+                "kind": "select",
+                "options": ["", "Button", "Edit", "MenuItem", "TabItem", "Text"],
+                "default": "",
+            },
+            {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 10000},
+        ],
+    },
     # API
     {
         "type": "api.request",
@@ -275,10 +377,13 @@ STEP_LIBRARY: list[dict[str, Any]] = [
 
 
 def steps_by_category() -> dict[str, list[dict[str, Any]]]:
-    grouped: dict[str, list[dict[str, Any]]] = {}
+    from flowtest.models import STEP_CATEGORIES
+
+    grouped: dict[str, list[dict[str, Any]]] = {k: [] for k in STEP_CATEGORIES}
     for step in STEP_LIBRARY:
         grouped.setdefault(step["category"], []).append(step)
-    return grouped
+    # Drop empty categories; keep declared order first
+    return {k: v for k, v in grouped.items() if v}
 
 
 def get_step_def(step_type: str) -> dict[str, Any] | None:

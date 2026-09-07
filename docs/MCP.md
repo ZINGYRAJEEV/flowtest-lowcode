@@ -52,6 +52,18 @@ If `cwd` resolution fails on your Cursor version, set an absolute path:
 | `import_recording` | Chrome extension JSON → test |
 | `export_suite` | Write `tests/.../suite.json` |
 | `list_suite_files` | Existing exported suites |
+| `desktop_list_windows` | Open window titles (Windows local) |
+| `desktop_focus_window` | Bring app window to front |
+| `desktop_click` / `desktop_type_text` / `desktop_send_keys` | Drive desktop UI |
+| `desktop_screenshot` | Full-screen capture to artifacts |
+
+Desktop tools need:
+
+```bash
+pip install -r requirements-desktop.txt
+```
+
+(Windows only; not available on Streamlit Cloud.)
 
 ## Example prompts
 
@@ -60,3 +72,5 @@ If `cwd` resolution fails on your Cursor version, set an absolute path:
 - “Import this recording JSON into project `<id>` as ‘Login smoke’”
 - “Run that test on Staging and summarize failures”
 - “Export suite Smoke for Git”
+- “List desktop windows and focus Notepad”
+- “Type Hello into Notepad and take a desktop screenshot”

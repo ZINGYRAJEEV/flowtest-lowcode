@@ -23,6 +23,7 @@ ROLES = ("Admin", "Editor", "Runner", "Viewer")
 
 STEP_CATEGORIES = {
     "ui": "Web UI",
+    "desktop": "Desktop UI",
     "api": "REST API",
     "assert": "Assertions",
     "data": "Data / ETL",

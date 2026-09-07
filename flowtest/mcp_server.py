@@ -31,9 +31,10 @@ def build_server():
     mcp = FastMCP(
         "FlowTest",
         instructions=(
-            "FlowTest is a low-code web/API test automation tool. "
+            "FlowTest is a low-code web/API/desktop test automation tool. "
             "Use these tools to list projects/tests, inspect steps, run tests, "
-            "import Chrome-extension recordings, and export suites to tests/ for Git/CI."
+            "import Chrome-extension recordings, export suites, and (on local Windows) "
+            "interact with desktop application windows via UI Automation."
         ),
     )
 
@@ -147,6 +148,68 @@ def build_server():
     def list_suite_files() -> str:
         """List suite.json files already present under tests/."""
         return _json(mcp_api.tool_list_suite_files())
+
+    @mcp.tool()
+    def desktop_list_windows(limit: int = 40) -> str:
+        """List open desktop window titles (Windows local; needs requirements-desktop.txt)."""
+        return _json(mcp_api.tool_desktop_list_windows(limit=limit))
+
+    @mcp.tool()
+    def desktop_focus_window(title: str, timeout_ms: int = 15000) -> str:
+        """Focus a desktop app window whose title contains the given text."""
+        return _json(mcp_api.tool_desktop_focus_window(title=title, timeout_ms=timeout_ms))
+
+    @mcp.tool()
+    def desktop_click(
+        name: str = "",
+        window_title: str = "",
+        control_type: str = "Button",
+        auto_id: str = "",
+        timeout_ms: int = 15000,
+    ) -> str:
+        """Click a desktop control by name/AutomationId inside an optional window."""
+        return _json(
+            mcp_api.tool_desktop_click(
+                name=name,
+                window_title=window_title,
+                control_type=control_type,
+                auto_id=auto_id,
+                timeout_ms=timeout_ms,
+            )
+        )
+
+    @mcp.tool()
+    def desktop_type_text(
+        text: str,
+        window_title: str = "",
+        name: str = "",
+        control_type: str = "Edit",
+        auto_id: str = "",
+        clear: bool = False,
+        timeout_ms: int = 15000,
+    ) -> str:
+        """Type text into a desktop window or named Edit control."""
+        return _json(
+            mcp_api.tool_desktop_type_text(
+                text=text,
+                window_title=window_title,
+                name=name,
+                control_type=control_type,
+                auto_id=auto_id,
+                clear=clear,
+                timeout_ms=timeout_ms,
+            )
+        )
+
+    @mcp.tool()
+    def desktop_send_keys(keys: str, window_title: str = "") -> str:
+        """Send hotkeys to a desktop window (e.g. ^s, {ENTER}, %{F4})."""
+        return _json(mcp_api.tool_desktop_send_keys(keys=keys, window_title=window_title))
+
+    @mcp.tool()
+    def desktop_screenshot(label: str = "desktop") -> str:
+        """Capture a full desktop screenshot to FlowTest artifacts."""
+        return _json(mcp_api.tool_desktop_screenshot(label=label))
 
     return mcp
 

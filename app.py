@@ -581,11 +581,18 @@ def page_builder():
         st.info("Editors and Admins can record sessions or import Chrome recordings.")
 
     st.markdown("#### Step library")
+    from flowtest.models import STEP_CATEGORIES
+
     grouped = steps_by_category()
     cats = list(grouped.keys())
-    tabs = st.tabs([c.upper() for c in cats])
+    tabs = st.tabs([STEP_CATEGORIES.get(c, c.upper()) for c in cats])
     for tab, cat in zip(tabs, cats):
         with tab:
+            if cat == "desktop":
+                st.caption(
+                    "Windows **local only** — not available on Streamlit Cloud. "
+                    "Install: `pip install -r requirements-desktop.txt`"
+                )
             for meta in grouped[cat]:
                 cols = st.columns([4, 1])
                 cols[0].markdown(f"**{meta['label']}** — {meta['description']}")

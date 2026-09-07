@@ -29,6 +29,16 @@ pip install -r requirements-mcp.txt
 
 See [docs/MCP.md](docs/MCP.md) and `.cursor/mcp.json`.
 
+## Desktop UI (Windows local)
+
+Automate native desktop apps from the Test Builder **Desktop UI** tab, or via MCP desktop tools:
+
+```bash
+pip install -r requirements-desktop.txt
+```
+
+Works only on a local Windows machine (not Streamlit Cloud).
+
 ## CI / Pipelines
 
 In the app: **CI / Pipelines** → select suite + environment → **Generate CI scripts**.

@@ -130,6 +130,29 @@ STEP_LIBRARY: list[dict[str, Any]] = [
             {"key": "label", "label": "Label", "kind": "text", "default": "checkpoint"},
         ],
     },
+    {
+        "type": "ui.copy_text",
+        "category": "ui",
+        "label": "Copy text from page",
+        "description": "Read text from a CSS selector (or current selection) into a variable and optionally the Windows clipboard — for pasting into Notepad/desktop apps.",
+        "fields": [
+            {"key": "selector", "label": "CSS selector", "kind": "text", "default": "body"},
+            {
+                "key": "use_selection",
+                "label": "Use current text selection instead",
+                "kind": "bool",
+                "default": False,
+            },
+            {"key": "save_as", "label": "Save as variable", "kind": "text", "default": "web_text"},
+            {
+                "key": "to_clipboard",
+                "label": "Also set Windows clipboard",
+                "kind": "bool",
+                "default": True,
+            },
+            {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 30000},
+        ],
+    },
     # Desktop (Windows local only — pip install -r requirements-desktop.txt)
     {
         "type": "desktop.focus_window",
@@ -138,6 +161,38 @@ STEP_LIBRARY: list[dict[str, Any]] = [
         "description": "Bring a desktop app window to the front by title (Windows, local only).",
         "fields": [
             {"key": "title", "label": "Window title contains", "kind": "text", "default": "Notepad"},
+            {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 15000},
+        ],
+    },
+    {
+        "type": "desktop.launch",
+        "category": "desktop",
+        "label": "Launch app",
+        "description": "Start a desktop program (e.g. notepad.exe).",
+        "fields": [
+            {"key": "command", "label": "Command", "kind": "text", "default": "notepad.exe"},
+            {"key": "wait_ms", "label": "Wait after launch (ms)", "kind": "number", "default": 1200},
+        ],
+    },
+    {
+        "type": "desktop.paste",
+        "category": "desktop",
+        "label": "Paste (Ctrl+V)",
+        "description": "Paste clipboard into the focused desktop window. Optionally refresh clipboard from a variable first.",
+        "fields": [
+            {"key": "window_title", "label": "Window title contains", "kind": "text", "default": "Notepad"},
+            {
+                "key": "from_variable",
+                "label": "Refresh clipboard from variable",
+                "kind": "text",
+                "default": "web_text",
+            },
+            {
+                "key": "refresh_clipboard",
+                "label": "Refresh clipboard before paste",
+                "kind": "bool",
+                "default": True,
+            },
             {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 15000},
         ],
     },
@@ -349,6 +404,24 @@ STEP_LIBRARY: list[dict[str, Any]] = [
         "description": "Documentation step for collaboration (always passes).",
         "fields": [
             {"key": "text", "label": "Comment", "kind": "textarea", "default": ""},
+        ],
+    },
+    {
+        "type": "util.clipboard_set",
+        "category": "util",
+        "label": "Set clipboard",
+        "description": "Put text (or a {{variable}}) on the Windows clipboard.",
+        "fields": [
+            {"key": "text", "label": "Text / {{variable}}", "kind": "textarea", "default": "{{web_text}}"},
+        ],
+    },
+    {
+        "type": "util.clipboard_get",
+        "category": "util",
+        "label": "Get clipboard",
+        "description": "Read the Windows clipboard into a variable.",
+        "fields": [
+            {"key": "save_as", "label": "Save as variable", "kind": "text", "default": "clipboard_text"},
         ],
     },
     {

@@ -157,7 +157,15 @@ def execute_test_case(
     browser = None
     page = None
     context = None
-    needs_browser = any(s.type.startswith("ui.") or s.type.startswith("assert.title") or s.type.startswith("assert.element") or s.type.startswith("assert.text") or s.type == "util.custom_js" for s in test.steps if s.enabled)
+    needs_browser = any(
+        s.type.startswith("ui.")
+        or s.type.startswith("assert.title")
+        or s.type.startswith("assert.element")
+        or s.type.startswith("assert.text")
+        or s.type == "util.custom_js"
+        for s in test.steps
+        if s.enabled
+    )
 
     try:
         if needs_browser:
@@ -350,6 +358,36 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
             screenshot = str(path)
             detail = f"Saved {path.name}"
 
+        elif stype == "ui.copy_text":
+            if page is None:
+                raise RuntimeError("Browser not available")
+            from flowtest.clipboard_util import set_clipboard_text
+
+            use_selection = bool(cfg.get("use_selection", False))
+            selector = str(cfg.get("selector") or "").strip()
+            timeout = _ui_timeout(cfg)
+            if use_selection:
+                text = page.evaluate(
+                    "() => (window.getSelection && window.getSelection().toString()) || ''"
+                )
+                if not str(text or "").strip():
+                    raise RuntimeError(
+                        "No text is selected on the page. Highlight text first, or set a CSS selector."
+                    )
+            else:
+                if not selector:
+                    selector = "body"
+                loc = page.locator(selector).first
+                loc.wait_for(state="attached", timeout=timeout)
+                text = loc.inner_text(timeout=timeout)
+            text = "" if text is None else str(text)
+            save_as = str(cfg.get("save_as") or "web_text").strip() or "web_text"
+            variables[save_as] = text
+            to_clip = bool(cfg.get("to_clipboard", True))
+            if to_clip:
+                set_clipboard_text(text)
+            detail = f"Copied {len(text)} char(s) → {save_as}" + (" + clipboard" if to_clip else "")
+
         elif stype == "api.request":
             import httpx
 
@@ -473,6 +511,21 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
         elif stype == "util.comment":
             detail = str(cfg.get("text", ""))[:200] or "Comment"
 
+        elif stype == "util.clipboard_set":
+            from flowtest.clipboard_util import set_clipboard_text
+
+            text = str(cfg.get("text", ""))
+            set_clipboard_text(text)
+            detail = f"Clipboard set ({len(text)} chars)"
+
+        elif stype == "util.clipboard_get":
+            from flowtest.clipboard_util import get_clipboard_text
+
+            text = get_clipboard_text()
+            save_as = str(cfg.get("save_as") or "clipboard_text").strip() or "clipboard_text"
+            variables[save_as] = text
+            detail = f"Clipboard → {save_as} ({len(text)} chars)"
+
         elif stype == "util.custom_js":
             if page is None:
                 raise RuntimeError("Browser not available")
@@ -504,6 +557,28 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
                 timeout_ms=int(cfg.get("timeout_ms") or 15000),
             )
             variables["_desktop_window"] = str(cfg.get("title") or "")
+
+        elif stype == "desktop.launch":
+            detail = _desktop.launch_app(
+                command=str(cfg.get("command") or ""),
+                wait_ms=int(cfg.get("wait_ms") or 1200),
+            )
+
+        elif stype == "desktop.paste":
+            from_var = str(cfg.get("from_variable") or "").strip()
+            refresh = bool(cfg.get("refresh_clipboard", True))
+            text = variables.get(from_var) if from_var else None
+            if refresh and from_var and text is None:
+                raise RuntimeError(f"Variable {from_var!r} is empty — run ui.copy_text first")
+            # Ensure window title resolves before paste
+            win_title = str(cfg.get("window_title") or variables.get("_desktop_window") or "")
+            if win_title:
+                _desktop.focus_window(title=win_title, timeout_ms=int(cfg.get("timeout_ms") or 15000))
+            detail = _desktop.paste(
+                window_title=win_title,
+                text=None if text is None else str(text),
+                refresh_clipboard=refresh and text is not None,
+            )
 
         elif stype == "desktop.click":
             detail = _desktop.click_control(

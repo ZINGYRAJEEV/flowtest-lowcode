@@ -302,12 +302,43 @@ def events_to_desktop_steps(events: list[dict[str, Any]]) -> list[TestStep]:
             if not keys:
                 continue
             title = str(ev.get("window_title") or "").strip()
+            if keys in ("^v", "ctrl+v", "Ctrl+V"):
+                steps.append(
+                    TestStep(
+                        id=new_id("stp_"),
+                        type="desktop.paste",
+                        name="Paste (Ctrl+V)",
+                        config={
+                            "window_title": title,
+                            "from_variable": "web_text",
+                            "refresh_clipboard": True,
+                            "timeout_ms": 15000,
+                        },
+                        notes="Recorded paste — ensure ui.copy_text saved web_text earlier",
+                    )
+                )
+            else:
+                steps.append(
+                    TestStep(
+                        id=new_id("stp_"),
+                        type="desktop.send_keys",
+                        name=f"Keys {keys[:24]}",
+                        config={"keys": keys, "window_title": title},
+                    )
+                )
+        elif et == "paste":
+            title = str(ev.get("window_title") or "").strip()
             steps.append(
                 TestStep(
                     id=new_id("stp_"),
-                    type="desktop.send_keys",
-                    name=f"Keys {keys[:24]}",
-                    config={"keys": keys, "window_title": title},
+                    type="desktop.paste",
+                    name="Paste (Ctrl+V)",
+                    config={
+                        "window_title": title,
+                        "from_variable": "web_text",
+                        "refresh_clipboard": True,
+                        "timeout_ms": 15000,
+                    },
                 )
             )
         elif et == "assert_window":
@@ -492,6 +523,32 @@ def record_desktop_session(
             ch = key.char
         except AttributeError:
             ch = None
+
+        # Ctrl+C / Ctrl+V come through as control chars when Ctrl is held
+        if ch == "\x03":  # Ctrl+C
+            _flush_type()
+            if _matches_filter(fg):
+                _add(
+                    {
+                        "type": "send_keys",
+                        "keys": "^c",
+                        "window_title": fg,
+                        "ts": int(time.time() * 1000),
+                    }
+                )
+            return
+        if ch == "\x16":  # Ctrl+V
+            _flush_type()
+            if _matches_filter(fg):
+                _add(
+                    {
+                        "type": "paste",
+                        "window_title": fg,
+                        "ts": int(time.time() * 1000),
+                    }
+                )
+            return
+
         if ch and ch.isprintable():
             if not type_buf:
                 type_meta["window_title"] = fg

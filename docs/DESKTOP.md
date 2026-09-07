@@ -23,14 +23,16 @@ Open **Desktop UI** in the step library:
 | Desktop wait / screenshot | Timing + evidence |
 | Assert window / control | Hard fail if missing |
 
-## Desktop recorder
+## Recipe: web text → Notepad
 
-In **Test Builder → Record desktop session**:
+In **Test Builder → Recipe: copy web text → Notepad**:
 
-1. Optionally set an app to launch (e.g. `notepad.exe`)
-2. Click **Start desktop recording**
-3. A floating panel appears — use your apps normally (click / type)
-4. Press **F8** to assert the current window, or **Finish** / **F9** when done
-5. Review the generated Desktop UI steps and save
+1. Set the web URL and CSS selector (or use text selection)
+2. Click **Insert Web → Notepad recipe**
+3. Save and run **locally** (headed)
 
-Requires local Windows + `pip install -r requirements-desktop.txt`.
+Generated flow: open page → copy text (variable + clipboard) → launch Notepad → paste (Ctrl+V).
+
+You can refine the web half with the browser recorder and the Notepad half with the desktop recorder (Ctrl+V is captured as Paste).
+
+New steps: `ui.copy_text`, `desktop.launch`, `desktop.paste`, `util.clipboard_set` / `util.clipboard_get`.

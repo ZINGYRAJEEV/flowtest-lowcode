@@ -235,6 +235,34 @@ def send_keys(keys: str, window_title: str = "") -> str:
     return f"Sent keys: {keys[:60]}"
 
 
+def launch_app(command: str, wait_ms: int = 1200) -> str:
+    ensure_desktop_available()
+    import subprocess
+
+    cmd = (command or "").strip()
+    if not cmd:
+        raise RuntimeError("Launch command is empty")
+    subprocess.Popen(cmd, shell=True)
+    time.sleep(max(0, int(wait_ms)) / 1000.0)
+    return f"Launched: {cmd[:80]}"
+
+
+def paste(
+    window_title: str = "",
+    text: str | None = None,
+    refresh_clipboard: bool = False,
+) -> str:
+    """Paste into a desktop window via Ctrl+V. Optionally set clipboard from text first."""
+    ensure_desktop_available()
+    from flowtest.clipboard_util import set_clipboard_text
+
+    if refresh_clipboard and text is not None:
+        set_clipboard_text(str(text))
+        time.sleep(0.08)
+    detail = send_keys("^v", window_title=window_title)
+    return f"Pasted into desktop ({detail})"
+
+
 def wait_ms(ms: int) -> str:
     time.sleep(max(0, int(ms)) / 1000.0)
     return f"Waited {int(ms)} ms"

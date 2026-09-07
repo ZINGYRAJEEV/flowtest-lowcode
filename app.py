@@ -668,6 +668,79 @@ def page_builder():
                         "and run FlowTest locally on Windows (not Streamlit Cloud)."
                     )
 
+    # ----- Hybrid recipe: web → Notepad -----
+    if can("edit"):
+        st.markdown("#### Recipe: copy web text → Notepad")
+        st.caption(
+            "One-click starter flow: open a page → copy text → launch Notepad → paste. "
+            "Refine with **browser** and **desktop** recorders afterward. "
+            "Desktop paste steps need local Windows."
+        )
+        with st.expander("Insert Web → Notepad steps", expanded=False):
+            envs_hyb = list_environments()
+            default_url = "{{BASE_URL}}"
+            if envs_hyb and (envs_hyb[0].base_url or "").strip():
+                default_url = envs_hyb[0].base_url
+            h1, h2 = st.columns(2)
+            with h1:
+                hyb_url = st.text_input("Web URL", value=default_url, key="hyb_url")
+                hyb_selector = st.text_input(
+                    "CSS selector to copy",
+                    value="body",
+                    key="hyb_selector",
+                    help="Example: h1, article, .product-title — or use selection mode below.",
+                )
+                hyb_selection = st.toggle(
+                    "Copy current text selection instead of selector",
+                    value=False,
+                    key="hyb_selection",
+                    help="For headed runs: highlight text on the page before this step, or prefer a selector.",
+                )
+            with h2:
+                hyb_notepad = st.text_input(
+                    "Notepad window title contains",
+                    value="Notepad",
+                    key="hyb_notepad",
+                )
+                hyb_launch = st.toggle("Launch notepad.exe", value=True, key="hyb_launch")
+                hyb_mode = st.selectbox(
+                    "Paste mode",
+                    ["clipboard (Ctrl+V)", "type variable"],
+                    key="hyb_mode",
+                )
+                hyb_replace = st.selectbox(
+                    "Insert mode",
+                    ["Append steps", "Replace all steps"],
+                    key="hyb_replace",
+                )
+            if st.button("Insert Web → Notepad recipe", type="primary", key="hyb_insert"):
+                from flowtest.hybrid_recipes import recipe_web_text_to_notepad
+
+                recipe = recipe_web_text_to_notepad(
+                    url=(hyb_url or "{{BASE_URL}}").strip(),
+                    selector=(hyb_selector or "body").strip(),
+                    use_selection=bool(hyb_selection),
+                    notepad_title=(hyb_notepad or "Notepad").strip(),
+                    launch_notepad=bool(hyb_launch),
+                    paste_mode="type" if hyb_mode.startswith("type") else "clipboard",
+                )
+                if hyb_replace == "Replace all steps":
+                    st.session_state.draft_steps = recipe
+                else:
+                    st.session_state.draft_steps.extend(recipe)
+                add_audit(
+                    st.session_state.user.username,
+                    "recipe_web_notepad",
+                    "test",
+                    getattr(test, "id", ""),
+                    f"{len(recipe)} steps",
+                )
+                st.success(
+                    f"Inserted **{len(recipe)}** steps. Review, save, then run **locally** "
+                    "(headed browser helps if using selection)."
+                )
+                st.rerun()
+
     st.markdown("#### Step library")
     from flowtest.models import STEP_CATEGORIES
 

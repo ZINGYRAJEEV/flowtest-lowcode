@@ -59,33 +59,83 @@ def list_windows(limit: int = 40) -> list[dict[str, Any]]:
     return out
 
 
+def _normalize_title_query(title: str) -> str:
+    """Treat user wildcards as 'contains' — strip leading/trailing * ?."""
+    t = (title or "").strip()
+    # Users often type *Notepad* thinking glob; we already do contains-match.
+    while t.startswith(("*", "?")):
+        t = t[1:].strip()
+    while t.endswith(("*", "?")):
+        t = t[:-1].strip()
+    return t
+
+
+def _find_window_by_title(title: str):
+    """Case-insensitive contains match against top-level windows."""
+    import re
+
+    query = _normalize_title_query(title)
+    if not query:
+        raise RuntimeError("Window title is empty")
+    q = query.lower()
+    matches = []
+    for w in _desktop().windows():
+        try:
+            text = (w.window_text() or "").strip()
+        except Exception:
+            continue
+        if not text:
+            continue
+        if q in text.lower():
+            matches.append(w)
+    if matches:
+        return matches[0]
+    # Fallback: regex contains (escaped) for odd titles
+    try:
+        return _desktop().window(title_re=f"(?i).*{re.escape(query)}.*")
+    except Exception:
+        return None
+
+
 def focus_window(title: str, timeout_ms: int = 15000) -> str:
     ensure_desktop_available()
-    title = (title or "").strip()
-    if not title:
+    query = _normalize_title_query(title)
+    if not query:
         raise RuntimeError("Window title is empty")
     deadline = time.time() + max(timeout_ms, 500) / 1000.0
     last_err = "Window not found"
     while time.time() < deadline:
         try:
-            win = _desktop().window(title_re=f".*{_re_escape(title)}.*")
-            win.wait("exists enabled visible", timeout=1)
+            win = _find_window_by_title(query)
+            if win is None:
+                raise RuntimeError("no match")
+            try:
+                win.restore()
+            except Exception:
+                pass
             win.set_focus()
-            return f"Focused: {(win.window_text() or title)[:80]}"
+            return f"Focused: {(win.window_text() or query)[:80]}"
         except Exception as exc:
             last_err = str(exc)
             time.sleep(0.35)
-    raise RuntimeError(f"Could not focus window matching {title!r}: {last_err[:200]}")
+    open_titles = [w["title"] for w in list_windows(25)]
+    hint = ", ".join(repr(t) for t in open_titles[:8]) or "(none)"
+    raise RuntimeError(
+        f"Could not focus window matching {query!r} (timed out). "
+        f"Open windows include: {hint}. "
+        "Tip: use a short unique part of the title (e.g. notes.txt or Notepad), "
+        "and keep that window open before the step runs."
+    )
 
 
 def _re_escape(text: str) -> str:
     import re
 
-    return re.escape(text)
+    return re.escape(_normalize_title_query(text))
 
 
 def _resolve_window(window_title: str):
-    title = (window_title or "").strip()
+    title = _normalize_title_query(window_title)
     if not title:
         # Prefer the foreground / active top-level window
         try:
@@ -95,7 +145,10 @@ def _resolve_window(window_title: str):
             if not wins:
                 raise RuntimeError("No desktop window available — set window_title")
             return wins[0]
-    return _desktop().window(title_re=f".*{_re_escape(title)}.*")
+    win = _find_window_by_title(title)
+    if win is None:
+        raise RuntimeError(f"Desktop window matching {title!r} not found")
+    return win
 
 
 def _find_control(win, name: str, control_type: str = "", auto_id: str = ""):
@@ -204,16 +257,20 @@ def screenshot(label: str = "desktop") -> str:
 
 def assert_window(title: str, timeout_ms: int = 10000) -> str:
     ensure_desktop_available()
-    title = (title or "").strip()
-    if not title:
+    query = _normalize_title_query(title)
+    if not query:
         raise RuntimeError("Window title is empty")
     deadline = time.time() + max(timeout_ms, 500) / 1000.0
     while time.time() < deadline:
         for item in list_windows(limit=80):
-            if title.lower() in item["title"].lower():
+            if query.lower() in item["title"].lower():
                 return f"Window present: {item['title']}"
         time.sleep(0.35)
-    raise RuntimeError(f"Desktop window matching {title!r} not found")
+    open_titles = [w["title"] for w in list_windows(15)]
+    hint = ", ".join(repr(t) for t in open_titles[:8]) or "(none)"
+    raise RuntimeError(
+        f"Desktop window matching {query!r} not found. Open windows include: {hint}"
+    )
 
 
 def assert_control(

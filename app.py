@@ -580,6 +580,94 @@ def page_builder():
     elif not can("edit"):
         st.info("Editors and Admins can record sessions or import Chrome recordings.")
 
+    # ----- Desktop recorder (Windows local) -----
+    if can("edit") and headed_ok:
+        st.markdown("#### Record desktop session")
+        st.caption(
+            "Windows only — a floating **FlowTest Desktop Recorder** panel appears. "
+            "Click and type in your apps as usual, then **Finish** (or press **F9**). "
+            "Requires: `pip install -r requirements-desktop.txt`"
+        )
+        dw1, dw2, dw3 = st.columns([2, 1.4, 1])
+        with dw1:
+            desk_launch = st.text_input(
+                "Optional: app to launch",
+                value=st.session_state.get("desk_launch", "notepad.exe"),
+                key="desk_launch_input",
+                help="Example: notepad.exe  ·  leave blank to record an already-open app",
+            )
+            st.session_state.desk_launch = desk_launch
+            desk_filter = st.text_input(
+                "Optional: only record this window title",
+                value=st.session_state.get("desk_filter", ""),
+                key="desk_filter_input",
+                help="If set, ignores clicks/typing outside windows whose title contains this text.",
+            )
+            st.session_state.desk_filter = desk_filter
+        with dw2:
+            desk_replace_mode = st.selectbox(
+                "After desktop recording",
+                ["Append steps", "Replace all steps"],
+                key="desk_record_replace_mode",
+            )
+            st.caption("Shortcuts: **F8** assert window · **F9** finish")
+        with dw3:
+            st.write("")
+            start_desk = st.button(
+                "● Start desktop recording",
+                type="primary",
+                use_container_width=True,
+                key="start_desk_rec",
+            )
+
+        if start_desk:
+            with st.spinner(
+                "Desktop recorder starting… Look for the dark floating panel. "
+                "Use your apps, then click Finish (or F9)."
+            ):
+                try:
+                    from flowtest.desktop_recorder import (
+                        record_desktop_session_safe,
+                        steps_from_desktop_recording,
+                    )
+
+                    result = record_desktop_session_safe(
+                        window_title=(desk_filter or "").strip(),
+                        launch=(desk_launch or "").strip(),
+                        max_seconds=900,
+                    )
+                    if result.get("cancelled"):
+                        st.warning("Desktop recording cancelled — no steps added.")
+                    else:
+                        recorded = steps_from_desktop_recording(result)
+                        if not recorded:
+                            st.warning(
+                                "No desktop steps captured. Try clicking named buttons "
+                                "or typing in a text field, then Finish."
+                            )
+                        else:
+                            if desk_replace_mode == "Replace all steps":
+                                st.session_state.draft_steps = recorded
+                            else:
+                                st.session_state.draft_steps.extend(recorded)
+                            add_audit(
+                                st.session_state.user.username,
+                                "record_desktop",
+                                "test",
+                                getattr(test, "id", ""),
+                                f"{len(recorded)} desktop steps",
+                            )
+                            st.success(
+                                f"Recorded **{len(recorded)}** desktop step(s) — review and save below."
+                            )
+                            st.rerun()
+                except Exception as exc:
+                    st.error(f"Desktop recording failed: {exc}")
+                    st.info(
+                        "Install deps: `pip install -r requirements-desktop.txt` "
+                        "and run FlowTest locally on Windows (not Streamlit Cloud)."
+                    )
+
     st.markdown("#### Step library")
     from flowtest.models import STEP_CATEGORIES
 

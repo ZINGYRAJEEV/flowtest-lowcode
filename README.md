@@ -39,6 +39,8 @@ pip install -r requirements-desktop.txt
 
 Works only on a local Windows machine (not Streamlit Cloud).
 
+**Recorder:** Test Builder → **Record desktop session** — floating panel captures clicks/typing into Desktop UI steps. See [docs/DESKTOP.md](docs/DESKTOP.md).
+
 ## CI / Pipelines
 
 In the app: **CI / Pipelines** → select suite + environment → **Generate CI scripts**.

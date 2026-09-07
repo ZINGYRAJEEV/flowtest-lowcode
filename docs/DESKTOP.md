@@ -23,8 +23,14 @@ Open **Desktop UI** in the step library:
 | Desktop wait / screenshot | Timing + evidence |
 | Assert window / control | Hard fail if missing |
 
-## MCP (Cursor)
+## Desktop recorder
 
-Same actions as tools: `desktop_list_windows`, `desktop_focus_window`, `desktop_click`, …
+In **Test Builder → Record desktop session**:
 
-Example: open Notepad, then ask Cursor to focus Notepad and type text.
+1. Optionally set an app to launch (e.g. `notepad.exe`)
+2. Click **Start desktop recording**
+3. A floating panel appears — use your apps normally (click / type)
+4. Press **F8** to assert the current window, or **Finish** / **F9** when done
+5. Review the generated Desktop UI steps and save
+
+Requires local Windows + `pip install -r requirements-desktop.txt`.

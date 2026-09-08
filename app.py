@@ -236,34 +236,111 @@ def page_projects():
                 )
 
 
-def _render_step_editor(step: TestStep, idx: int) -> TestStep:
+def _step_config_summary(step: TestStep, meta: dict | None) -> str:
+    """Short config preview for the flow table row."""
+    if not meta:
+        return ""
+    parts: list[str] = []
+    for field in meta.get("fields", [])[:4]:
+        key = field["key"]
+        val = (step.config or {}).get(key, field.get("default", ""))
+        if val in (None, "", [], {}, False):
+            continue
+        if isinstance(val, bool):
+            shown = "yes" if val else "no"
+        else:
+            shown = str(val).replace("\n", " ").strip()
+            if len(shown) > 48:
+                shown = shown[:45] + "…"
+        parts.append(f"{field['label']}: {shown}")
+    return " · ".join(parts)
+
+
+def _render_step_editor(step: TestStep, idx: int, total: int) -> TestStep:
+    """Compact flow-step row: definition + one Actions menu (edit / move / duplicate / remove)."""
     meta = get_step_def(step.type)
     label = meta["label"] if meta else step.type
+    definition = (meta or {}).get("description") or "Custom / unknown step type."
+    category = (meta or {}).get("category", "")
     open_key = f"step_open_{step.id}"
-    title = f"{idx + 1}. [{step.type}] {step.name or label}"
+    summary = _step_config_summary(step, meta)
+    status = "On" if step.enabled else "Off"
 
-    # Use bordered container instead of expander — avoids Streamlit label ghosting/overlap bugs
     with st.container(border=True):
-        head_l, head_r = st.columns([5.5, 1])
-        with head_l:
-            st.markdown(f"**{title}**")
+        c_num, c_main, c_status, c_actions = st.columns([0.45, 5.2, 0.7, 0.9])
+        with c_num:
+            st.markdown(f"**{idx + 1}**")
+        with c_main:
+            type_bit = f"`{step.type}`"
+            if category:
+                type_bit = f"`{category}` · `{step.type}`"
+            st.markdown(f"**{step.name or label}**  \n{type_bit}")
+            st.caption(f"**What it does:** {definition}")
+            if summary:
+                st.caption(f"Config — {summary}")
             if step.notes:
-                st.caption(step.notes)
-        with head_r:
-            toggled = st.toggle(
-                "Edit",
-                value=bool(st.session_state.get(open_key, False)),
-                key=f"tog_{step.id}",
-                label_visibility="visible",
-            )
-            st.session_state[open_key] = toggled
+                st.caption(f"Notes — {step.notes}")
+        with c_status:
+            st.caption(status)
+            if not step.enabled:
+                st.caption("skipped")
+        with c_actions:
+            if can("edit"):
+                with st.popover("Actions", use_container_width=True):
+                    st.caption(f"Step {idx + 1}")
+                    edit_on = st.toggle(
+                        "Edit details",
+                        value=bool(st.session_state.get(open_key, False)),
+                        key=f"tog_{step.id}",
+                    )
+                    st.session_state[open_key] = edit_on
+                    if st.button("↑ Move up", key=f"up_{step.id}", disabled=idx <= 0, use_container_width=True):
+                        steps = st.session_state.draft_steps
+                        steps[idx - 1], steps[idx] = steps[idx], steps[idx - 1]
+                        st.rerun()
+                    if st.button(
+                        "↓ Move down",
+                        key=f"dn_{step.id}",
+                        disabled=idx >= total - 1,
+                        use_container_width=True,
+                    ):
+                        steps = st.session_state.draft_steps
+                        steps[idx + 1], steps[idx] = steps[idx], steps[idx + 1]
+                        st.rerun()
+                    if st.button("Duplicate", key=f"dup_{step.id}", use_container_width=True):
+                        clone = TestStep(
+                            id=new_id("stp_"),
+                            type=step.type,
+                            name=(step.name or label) + " (copy)",
+                            config=dict(step.config or {}),
+                            enabled=step.enabled,
+                            notes=step.notes,
+                        )
+                        st.session_state.draft_steps.insert(idx + 1, clone)
+                        st.rerun()
+                    if st.button("Remove", key=f"rm_{step.id}", type="primary", use_container_width=True):
+                        st.session_state.draft_steps.pop(idx)
+                        st.session_state.pop(open_key, None)
+                        st.rerun()
+            else:
+                st.caption("—")
 
         if st.session_state.get(open_key, False):
-            step.name = st.text_input("Step name", value=step.name, key=f"nm_{step.id}")
-            step.enabled = st.checkbox("Enabled", value=step.enabled, key=f"en_{step.id}")
-            step.notes = st.text_input("Notes / annotation", value=step.notes, key=f"nt_{step.id}")
+            st.divider()
+            st.markdown("**Edit step**")
+            e1, e2 = st.columns([3, 1])
+            with e1:
+                step.name = st.text_input("Step name", value=step.name, key=f"nm_{step.id}")
+            with e2:
+                step.enabled = st.checkbox("Enabled", value=step.enabled, key=f"en_{step.id}")
+            step.notes = st.text_input(
+                "Notes / annotation",
+                value=step.notes,
+                key=f"nt_{step.id}",
+                help="Optional note for teammates — does not affect execution.",
+            )
+            st.info(f"**Functional definition:** {definition}")
             if meta:
-                st.caption(meta["description"])
                 for field in meta["fields"]:
                     key = field["key"]
                     fkey = f"{step.id}_{key}"
@@ -304,6 +381,9 @@ def _render_step_editor(step: TestStep, idx: int) -> TestStep:
                         key=f"cfg_{step.id}",
                     )
                 )
+            if st.button("Done editing", key=f"done_{step.id}"):
+                st.session_state[open_key] = False
+                st.rerun()
     return step
 
 
@@ -361,7 +441,6 @@ def page_builder():
         test.steps = st.session_state.draft_steps
 
     # ----- Session recorder (FR-1): local headed + Cloud via Chrome extension -----
-    st.markdown("#### Record browser session")
     from flowtest.browser_setup import can_record_headed, is_streamlit_cloud
     from flowtest.extension_pack import build_chrome_extension_zip
     from flowtest.recording_import import parse_recording_text
@@ -369,61 +448,59 @@ def page_builder():
     cloud = is_streamlit_cloud()
     headed_ok = can_record_headed()
 
-    if can("edit"):
-        if cloud or not headed_ok:
-            st.success(
-                "**Recording is enabled** on Streamlit Cloud via the FlowTest Chrome extension "
-                "(record in your browser → import steps here → save → run headlessly)."
-            )
-            g1, g2 = st.columns([2, 1])
-            with g1:
-                st.markdown(
-                    """
+    with st.expander("Record browser session", expanded=False):
+        if can("edit"):
+            if cloud or not headed_ok:
+                st.success(
+                    "**Recording is enabled** on Streamlit Cloud via the FlowTest Chrome extension "
+                    "(record in your browser → import steps here → save → run headlessly)."
+                )
+                g1, g2 = st.columns([2, 1])
+                with g1:
+                    st.markdown(
+                        """
 1. Download the extension zip below and unzip it  
 2. Chrome → `chrome://extensions` → **Developer mode** → **Load unpacked**  
 3. Select the unzipped folder that contains **`manifest.json`** (not a parent folder)  
 4. Open your app under test → extension **Start** → click/type/navigate → **Finish**  
 5. **Copy JSON** (or download) → paste/upload in **Import recording** below → **Save** the test
 """
+                    )
+                with g2:
+                    try:
+                        zip_bytes = build_chrome_extension_zip()
+                        st.download_button(
+                            "⬇ Download Chrome recorder",
+                            data=zip_bytes,
+                            file_name="flowtest-chrome-extension.zip",
+                            mime="application/zip",
+                            type="primary",
+                            use_container_width=True,
+                            key="dl_chrome_ext",
+                        )
+                    except Exception as exc:
+                        st.error(f"Extension pack unavailable: {exc}")
+                    st.caption("Pin the extension after loading for quick access.")
+            else:
+                st.caption(
+                    "Opens a real browser on this machine. Click, type, and navigate as usual. "
+                    "**Assertions:** highlight text → **Assert selection** (or press **A**). "
+                    "**Finish recording** when done. You can also use the Chrome extension + import below."
                 )
-            with g2:
                 try:
                     zip_bytes = build_chrome_extension_zip()
                     st.download_button(
-                        "⬇ Download Chrome recorder",
+                        "⬇ Download Chrome recorder (optional)",
                         data=zip_bytes,
                         file_name="flowtest-chrome-extension.zip",
                         mime="application/zip",
-                        type="primary",
-                        use_container_width=True,
-                        key="dl_chrome_ext",
+                        use_container_width=False,
+                        key="dl_chrome_ext_local",
                     )
-                except Exception as exc:
-                    st.error(f"Extension pack unavailable: {exc}")
-                st.caption("Pin the extension after loading for quick access.")
-        else:
-            st.caption(
-                "Opens a real browser on this machine. Click, type, and navigate as usual. "
-                "**Assertions:** highlight text → **Assert selection** (or press **A**). "
-                "**Finish recording** when done. You can also use the Chrome extension + import below."
-            )
-            try:
-                zip_bytes = build_chrome_extension_zip()
-                st.download_button(
-                    "⬇ Download Chrome recorder (optional)",
-                    data=zip_bytes,
-                    file_name="flowtest-chrome-extension.zip",
-                    mime="application/zip",
-                    use_container_width=False,
-                    key="dl_chrome_ext_local",
-                )
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
-        with st.expander(
-            "Import recording (Chrome extension JSON)",
-            expanded=cloud or not headed_ok,
-        ):
+            st.markdown("##### Import recording (Chrome extension JSON)")
             st.caption(
                 "Paste or upload the JSON from the FlowTest Chrome extension after you finish recording."
             )
@@ -490,193 +567,192 @@ def page_builder():
                         st.rerun()
                 except Exception as exc:
                     st.error(f"Import failed: {exc}")
+        else:
+            st.info("Editors and Admins can record sessions or import Chrome recordings.")
 
     if can("edit") and headed_ok:
-        st.markdown("##### Local headed recording")
-        envs_for_rec = list_environments()
-        rc1, rc2, rc3 = st.columns([2.2, 1.4, 1])
-        with rc1:
-            default_start = ""
-            if envs_for_rec:
-                default_start = envs_for_rec[0].base_url or "https://example.com"
-            record_url = st.text_input(
-                "Start URL",
-                value=st.session_state.get("record_url", default_start or "https://example.com"),
-                key="record_url_input",
-                help="Page to open when recording starts.",
-            )
-            st.session_state.record_url = record_url
-        with rc2:
-            replace_base = st.toggle(
-                "Use {{BASE_URL}} for start URL",
-                value=True,
-                help="If the start URL matches an environment base URL, store navigation as {{BASE_URL}}.",
-            )
-            rec_env = None
-            if replace_base and envs_for_rec:
-                rec_env = st.selectbox(
-                    "Base environment",
-                    envs_for_rec,
-                    format_func=lambda e: e.name,
-                    key="record_env",
+        with st.expander("Local headed recording", expanded=False):
+            envs_for_rec = list_environments()
+            rc1, rc2, rc3 = st.columns([2.2, 1.4, 1])
+            with rc1:
+                default_start = ""
+                if envs_for_rec:
+                    default_start = envs_for_rec[0].base_url or "https://example.com"
+                record_url = st.text_input(
+                    "Start URL",
+                    value=st.session_state.get("record_url", default_start or "https://example.com"),
+                    key="record_url_input",
+                    help="Page to open when recording starts.",
                 )
-        with rc3:
-            replace_mode = st.selectbox(
-                "After recording",
-                ["Append steps", "Replace all steps"],
-                key="record_replace_mode",
-            )
-            st.write("")
-            start_rec = st.button("● Start recording", type="primary", use_container_width=True)
+                st.session_state.record_url = record_url
+            with rc2:
+                replace_base = st.toggle(
+                    "Use {{BASE_URL}} for start URL",
+                    value=True,
+                    help="If the start URL matches an environment base URL, store navigation as {{BASE_URL}}.",
+                )
+                rec_env = None
+                if replace_base and envs_for_rec:
+                    rec_env = st.selectbox(
+                        "Base environment",
+                        envs_for_rec,
+                        format_func=lambda e: e.name,
+                        key="record_env",
+                    )
+            with rc3:
+                replace_mode = st.selectbox(
+                    "After recording",
+                    ["Append steps", "Replace all steps"],
+                    key="record_replace_mode",
+                )
+                st.write("")
+                start_rec = st.button("● Start recording", type="primary", use_container_width=True)
 
-        if start_rec:
-            if not (record_url or "").strip():
-                st.error("Enter a start URL first.")
-            else:
-                base_for_replace = rec_env.base_url if (replace_base and rec_env) else None
-                with st.spinner(
-                    "Recording… A browser window should open. "
-                    "Interact with the site, then click **Finish recording** in the dark banner "
-                    "(or close the browser window)."
-                ):
-                    try:
-                        from flowtest.recorder import record_browser_session_safe, steps_from_recording
+            if start_rec:
+                if not (record_url or "").strip():
+                    st.error("Enter a start URL first.")
+                else:
+                    base_for_replace = rec_env.base_url if (replace_base and rec_env) else None
+                    with st.spinner(
+                        "Recording… A browser window should open. "
+                        "Interact with the site, then click **Finish recording** in the dark banner "
+                        "(or close the browser window)."
+                    ):
+                        try:
+                            from flowtest.recorder import record_browser_session_safe, steps_from_recording
 
-                        result = record_browser_session_safe(
-                            start_url=record_url.strip(),
-                            replace_base_url=base_for_replace,
-                            max_seconds=900,
-                        )
-                        recorded = steps_from_recording(result)
-                        if not recorded:
-                            st.warning(
-                                "No steps were captured. Try again and interact with the page "
-                                "before finishing."
+                            result = record_browser_session_safe(
+                                start_url=record_url.strip(),
+                                replace_base_url=base_for_replace,
+                                max_seconds=900,
                             )
-                        else:
-                            if replace_mode == "Replace all steps":
-                                st.session_state.draft_steps = recorded
+                            recorded = steps_from_recording(result)
+                            if not recorded:
+                                st.warning(
+                                    "No steps were captured. Try again and interact with the page "
+                                    "before finishing."
+                                )
                             else:
-                                st.session_state.draft_steps.extend(recorded)
-                            add_audit(
-                                st.session_state.user.username,
-                                "record",
-                                "test",
-                                getattr(test, "id", ""),
-                                f"{len(recorded)} steps from {result.get('start_url')}",
+                                if replace_mode == "Replace all steps":
+                                    st.session_state.draft_steps = recorded
+                                else:
+                                    st.session_state.draft_steps.extend(recorded)
+                                add_audit(
+                                    st.session_state.user.username,
+                                    "record",
+                                    "test",
+                                    getattr(test, "id", ""),
+                                    f"{len(recorded)} steps from {result.get('start_url')}",
+                                )
+                                st.success(
+                                    f"Recorded **{len(recorded)}** step(s) from "
+                                    f"`{result.get('start_url')}` — review and save below."
+                                )
+                                st.rerun()
+                        except Exception as exc:
+                            st.error(f"Recording failed: {exc}")
+                            st.info(
+                                "A Chromium window should open on your desktop. "
+                                "If it does not, run `playwright install chromium`. "
+                                "Click **Finish recording** in the dark banner when done."
                             )
-                            st.success(
-                                f"Recorded **{len(recorded)}** step(s) from "
-                                f"`{result.get('start_url')}` — review and save below."
-                            )
-                            st.rerun()
-                    except Exception as exc:
-                        st.error(f"Recording failed: {exc}")
-                        st.info(
-                            "A Chromium window should open on your desktop. "
-                            "If it does not, run `playwright install chromium`. "
-                            "Click **Finish recording** in the dark banner when done."
-                        )
-    elif not can("edit"):
-        st.info("Editors and Admins can record sessions or import Chrome recordings.")
 
     # ----- Desktop recorder (Windows local) -----
     if can("edit") and headed_ok:
-        st.markdown("#### Record desktop session")
-        st.caption(
-            "Windows only — a floating **FlowTest Desktop Recorder** panel appears. "
-            "Click and type in your apps as usual, then **Finish** (or press **F9**). "
-            "Requires: `pip install -r requirements-desktop.txt`"
-        )
-        dw1, dw2, dw3 = st.columns([2, 1.4, 1])
-        with dw1:
-            desk_launch = st.text_input(
-                "Optional: app to launch",
-                value=st.session_state.get("desk_launch", "notepad.exe"),
-                key="desk_launch_input",
-                help="Example: notepad.exe  ·  leave blank to record an already-open app",
+        with st.expander("Record desktop session", expanded=False):
+            st.caption(
+                "Windows only — a floating **FlowTest Desktop Recorder** panel appears. "
+                "Click and type in your apps as usual, then **Finish** (or press **F9**). "
+                "Requires: `pip install -r requirements-desktop.txt`"
             )
-            st.session_state.desk_launch = desk_launch
-            desk_filter = st.text_input(
-                "Optional: only record this window title",
-                value=st.session_state.get("desk_filter", ""),
-                key="desk_filter_input",
-                help="If set, ignores clicks/typing outside windows whose title contains this text.",
-            )
-            st.session_state.desk_filter = desk_filter
-        with dw2:
-            desk_replace_mode = st.selectbox(
-                "After desktop recording",
-                ["Append steps", "Replace all steps"],
-                key="desk_record_replace_mode",
-            )
-            st.caption("Shortcuts: **F8** assert window · **F9** finish")
-        with dw3:
-            st.write("")
-            start_desk = st.button(
-                "● Start desktop recording",
-                type="primary",
-                use_container_width=True,
-                key="start_desk_rec",
-            )
+            dw1, dw2, dw3 = st.columns([2, 1.4, 1])
+            with dw1:
+                desk_launch = st.text_input(
+                    "Optional: app to launch",
+                    value=st.session_state.get("desk_launch", "notepad.exe"),
+                    key="desk_launch_input",
+                    help="Example: notepad.exe  ·  leave blank to record an already-open app",
+                )
+                st.session_state.desk_launch = desk_launch
+                desk_filter = st.text_input(
+                    "Optional: only record this window title",
+                    value=st.session_state.get("desk_filter", ""),
+                    key="desk_filter_input",
+                    help="If set, ignores clicks/typing outside windows whose title contains this text.",
+                )
+                st.session_state.desk_filter = desk_filter
+            with dw2:
+                desk_replace_mode = st.selectbox(
+                    "After desktop recording",
+                    ["Append steps", "Replace all steps"],
+                    key="desk_record_replace_mode",
+                )
+                st.caption("Shortcuts: **F8** assert window · **F9** finish")
+            with dw3:
+                st.write("")
+                start_desk = st.button(
+                    "● Start desktop recording",
+                    type="primary",
+                    use_container_width=True,
+                    key="start_desk_rec",
+                )
 
-        if start_desk:
-            with st.spinner(
-                "Desktop recorder starting… Look for the dark floating panel. "
-                "Use your apps, then click Finish (or F9)."
-            ):
-                try:
-                    from flowtest.desktop_recorder import (
-                        record_desktop_session_safe,
-                        steps_from_desktop_recording,
-                    )
+            if start_desk:
+                with st.spinner(
+                    "Desktop recorder starting… Look for the dark floating panel. "
+                    "Use your apps, then click Finish (or F9)."
+                ):
+                    try:
+                        from flowtest.desktop_recorder import (
+                            record_desktop_session_safe,
+                            steps_from_desktop_recording,
+                        )
 
-                    result = record_desktop_session_safe(
-                        window_title=(desk_filter or "").strip(),
-                        launch=(desk_launch or "").strip(),
-                        max_seconds=900,
-                    )
-                    if result.get("cancelled"):
-                        st.warning("Desktop recording cancelled — no steps added.")
-                    else:
-                        recorded = steps_from_desktop_recording(result)
-                        if not recorded:
-                            st.warning(
-                                "No desktop steps captured. Try clicking named buttons "
-                                "or typing in a text field, then Finish."
-                            )
+                        result = record_desktop_session_safe(
+                            window_title=(desk_filter or "").strip(),
+                            launch=(desk_launch or "").strip(),
+                            max_seconds=900,
+                        )
+                        if result.get("cancelled"):
+                            st.warning("Desktop recording cancelled — no steps added.")
                         else:
-                            if desk_replace_mode == "Replace all steps":
-                                st.session_state.draft_steps = recorded
+                            recorded = steps_from_desktop_recording(result)
+                            if not recorded:
+                                st.warning(
+                                    "No desktop steps captured. Try clicking named buttons "
+                                    "or typing in a text field, then Finish."
+                                )
                             else:
-                                st.session_state.draft_steps.extend(recorded)
-                            add_audit(
-                                st.session_state.user.username,
-                                "record_desktop",
-                                "test",
-                                getattr(test, "id", ""),
-                                f"{len(recorded)} desktop steps",
-                            )
-                            st.success(
-                                f"Recorded **{len(recorded)}** desktop step(s) — review and save below."
-                            )
-                            st.rerun()
-                except Exception as exc:
-                    st.error(f"Desktop recording failed: {exc}")
-                    st.info(
-                        "Install deps: `pip install -r requirements-desktop.txt` "
-                        "and run FlowTest locally on Windows (not Streamlit Cloud)."
-                    )
+                                if desk_replace_mode == "Replace all steps":
+                                    st.session_state.draft_steps = recorded
+                                else:
+                                    st.session_state.draft_steps.extend(recorded)
+                                add_audit(
+                                    st.session_state.user.username,
+                                    "record_desktop",
+                                    "test",
+                                    getattr(test, "id", ""),
+                                    f"{len(recorded)} desktop steps",
+                                )
+                                st.success(
+                                    f"Recorded **{len(recorded)}** desktop step(s) — review and save below."
+                                )
+                                st.rerun()
+                    except Exception as exc:
+                        st.error(f"Desktop recording failed: {exc}")
+                        st.info(
+                            "Install deps: `pip install -r requirements-desktop.txt` "
+                            "and run FlowTest locally on Windows (not Streamlit Cloud)."
+                        )
 
     # ----- Hybrid recipe: web → Notepad -----
     if can("edit"):
-        st.markdown("#### Recipe: copy web text → Notepad")
-        st.caption(
-            "One-click starter flow: open a page → copy text → launch Notepad → paste. "
-            "Refine with **browser** and **desktop** recorders afterward. "
-            "Desktop paste steps need local Windows."
-        )
-        with st.expander("Insert Web → Notepad steps", expanded=False):
+        with st.expander("Recipe: copy web text → Notepad", expanded=False):
+            st.caption(
+                "One-click starter flow: open a page → copy text → launch Notepad → paste. "
+                "Refine with **browser** and **desktop** recorders afterward. "
+                "Desktop paste steps need local Windows."
+            )
             envs_hyb = list_environments()
             default_url = "{{BASE_URL}}"
             if envs_hyb and (envs_hyb[0].base_url or "").strip():
@@ -741,62 +817,47 @@ def page_builder():
                 )
                 st.rerun()
 
-    st.markdown("#### Step library")
     from flowtest.models import STEP_CATEGORIES
 
-    grouped = steps_by_category()
-    cats = list(grouped.keys())
-    tabs = st.tabs([STEP_CATEGORIES.get(c, c.upper()) for c in cats])
-    for tab, cat in zip(tabs, cats):
-        with tab:
-            if cat == "desktop":
-                st.caption(
-                    "Windows **local only** — not available on Streamlit Cloud. "
-                    "Install: `pip install -r requirements-desktop.txt`"
-                )
-            for meta in grouped[cat]:
-                cols = st.columns([4, 1])
-                cols[0].markdown(f"**{meta['label']}** — {meta['description']}")
-                if can("edit") and cols[1].button("Add", key=f"add_{meta['type']}_{editing_new}"):
-                    st.session_state.draft_steps.append(
-                        TestStep(
-                            id=new_id("stp_"),
-                            type=meta["type"],
-                            name=meta["label"],
-                            config=default_config(meta["type"]),
-                        )
+    with st.expander("Step library", expanded=False):
+        st.caption("Expand to add Web UI, Desktop, API, assertion, and utility steps.")
+        grouped = steps_by_category()
+        cats = list(grouped.keys())
+        tabs = st.tabs([STEP_CATEGORIES.get(c, c.upper()) for c in cats])
+        for tab, cat in zip(tabs, cats):
+            with tab:
+                if cat == "desktop":
+                    st.caption(
+                        "Windows **local only** — not available on Streamlit Cloud. "
+                        "Install: `pip install -r requirements-desktop.txt`"
                     )
-                    st.rerun()
+                for meta in grouped[cat]:
+                    cols = st.columns([4, 1])
+                    cols[0].markdown(f"**{meta['label']}** — {meta['description']}")
+                    if can("edit") and cols[1].button("Add", key=f"add_{meta['type']}_{editing_new}"):
+                        st.session_state.draft_steps.append(
+                            TestStep(
+                                id=new_id("stp_"),
+                                type=meta["type"],
+                                name=meta["label"],
+                                config=default_config(meta["type"]),
+                            )
+                        )
+                        st.rerun()
 
-    st.markdown("#### Flow steps")
-    if not st.session_state.draft_steps:
-        st.info("Add steps from the library above.")
-    else:
-        for i, step in enumerate(list(st.session_state.draft_steps)):
-            st.session_state.draft_steps[i] = _render_step_editor(step, i)
-            b1, b2, b3, b4 = st.columns(4)
-            if can("edit") and b1.button("↑ Up", key=f"up_{step.id}") and i > 0:
-                steps = st.session_state.draft_steps
-                steps[i - 1], steps[i] = steps[i], steps[i - 1]
-                st.rerun()
-            if can("edit") and b2.button("↓ Down", key=f"dn_{step.id}") and i < len(st.session_state.draft_steps) - 1:
-                steps = st.session_state.draft_steps
-                steps[i + 1], steps[i] = steps[i], steps[i + 1]
-                st.rerun()
-            if can("edit") and b3.button("Duplicate", key=f"dup_{step.id}"):
-                clone = TestStep(
-                    id=new_id("stp_"),
-                    type=step.type,
-                    name=step.name + " (copy)",
-                    config=dict(step.config),
-                    enabled=step.enabled,
-                    notes=step.notes,
-                )
-                st.session_state.draft_steps.insert(i + 1, clone)
-                st.rerun()
-            if can("edit") and b4.button("Remove", key=f"rm_{step.id}"):
-                st.session_state.draft_steps.pop(i)
-                st.rerun()
+    step_count = len(st.session_state.draft_steps or [])
+    with st.expander(f"Flow steps ({step_count})", expanded=False):
+        if not st.session_state.draft_steps:
+            st.info("Add steps from the library or recorders above.")
+        else:
+            h1, h2, h3, h4 = st.columns([0.45, 5.2, 0.7, 0.9])
+            h1.caption("#")
+            h2.caption("Step · functional definition")
+            h3.caption("Status")
+            h4.caption("Actions")
+            total = len(st.session_state.draft_steps)
+            for i, step in enumerate(list(st.session_state.draft_steps)):
+                st.session_state.draft_steps[i] = _render_step_editor(step, i, total)
 
     st.markdown("#### Save / run / export")
     envs = list_environments()

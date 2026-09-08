@@ -1,0 +1,110 @@
+{
+  "id": "tst_044ddafb00",
+  "name": "Smoke: Campaign landing (UTM / Impact)",
+  "description": "Open LANDING_URL with Impact params; accept cookies; assert Temu.",
+  "tags": [
+    "smoke",
+    "utm",
+    "landing"
+  ],
+  "suite": "UI Coverage",
+  "version": 1,
+  "steps": [
+    {
+      "id": "stp_4e4206be99",
+      "type": "ui.goto",
+      "name": "Open campaign landing URL",
+      "config": {
+        "url": "{{LANDING_URL}}",
+        "timeout_ms": 90000
+      },
+      "enabled": true,
+      "notes": "Uses LANDING_URL from environment (Impact / adMarketplace link)"
+    },
+    {
+      "id": "stp_35e2c8d283",
+      "type": "ui.wait",
+      "name": "Wait for cookie dialog",
+      "config": {
+        "ms": 3200
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_d272de5151",
+      "type": "util.custom_js",
+      "name": "Accept cookies",
+      "config": {
+        "script": "\n(() => {\n\n  const isVisible = (el) => {\n    if (!el || !(el instanceof Element)) return false;\n    if (el.closest('[hidden], [aria-hidden=\"true\"]')) return false;\n    if (typeof el.checkVisibility === 'function') {\n      try {\n        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });\n      } catch (e) { /* fall through */ }\n    }\n    const style = window.getComputedStyle(el);\n    if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {\n      return false;\n    }\n    const r = el.getBoundingClientRect();\n    return r.width > 2 && r.height > 2;\n  };\n  const labelOf = (el) =>\n    (el.innerText || el.value || el.getAttribute('aria-label') || el.textContent || '')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .toLowerCase();\n\n  const labels = [\n    'accept all',\n    'accept all cookies',\n    'accept cookies',\n    'allow all',\n    'allow cookies',\n    'i agree',\n    'agree',\n    'got it',\n    'continue',\n    'accept',\n    'ok',\n  ];\n  // Prefer known CMP buttons (OneTrust / Cookiebot / Temu variants)\n  const preferred = [\n    '#onetrust-accept-btn-handler',\n    '#accept-recommended-btn-handler',\n    'button#onetrust-accept-btn-handler',\n    '[data-testid*=\"accept\" i]',\n    '[id*=\"accept\" i][role=\"button\"]',\n    'button[aria-label*=\"Accept\" i]',\n  ];\n  for (const sel of preferred) {\n    try {\n      const el = document.querySelector(sel);\n      if (el && isVisible(el)) {\n        el.click();\n        return 'clicked-sel:' + sel.slice(0, 48);\n      }\n    } catch (e) {}\n  }\n  const modalVisible = () => {\n    const dialogs = Array.from(\n      document.querySelectorAll(\n        '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n        '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i], [class*=\"privacy\" i]'\n      )\n    );\n    for (const d of dialogs) {\n      if (!isVisible(d)) continue;\n      const t = (d.innerText || '').toLowerCase();\n      if (\n        t.includes('cookie') || t.includes('privacy') || t.includes('consent') ||\n        t.includes('accept all') || t.includes('we value your privacy')\n      ) return true;\n    }\n    return Array.from(document.querySelectorAll('button, [role=\"button\"]')).some((el) => {\n      if (!isVisible(el)) return false;\n      const t = labelOf(el);\n      return t.includes('accept all') || t === 'accept cookies' || t.includes('allow all');\n    });\n  };\n  const clickMatch = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(\n      root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]')\n    );\n    for (const el of nodes) {\n      if (!isVisible(el)) continue;\n      const t = labelOf(el);\n      if (!t) continue;\n      if (\n        t.includes('reject') || t.includes('decline') || t.includes('refuse') ||\n        t.includes('manage') || t.includes('settings') || t.includes('customize') ||\n        t.includes('preferences') || t.includes('do not sell')\n      ) continue;\n      if (labels.some((l) => t === l || t.includes(l))) {\n        el.click();\n        return 'clicked:' + t.slice(0, 48);\n      }\n    }\n    return null;\n  };\n  const dialogs = Array.from(\n    document.querySelectorAll(\n      '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n      '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i]'\n    )\n  );\n  let hit = null;\n  for (const d of dialogs) {\n    hit = clickMatch(d);\n    if (hit) break;\n  }\n  if (!hit) hit = clickMatch(document.body);\n  if (hit) return hit;\n  if (modalVisible()) {\n    throw new Error('Cookie / privacy banner still visible \u2014 failed to Accept');\n  }\n  return 'no-banner';\n})()\n"
+      },
+      "enabled": true,
+      "notes": "Clicks Accept all / OneTrust / common CMP buttons; fails if banner stays"
+    },
+    {
+      "id": "stp_a706f85793",
+      "type": "ui.wait",
+      "name": "Settle after consent",
+      "config": {
+        "ms": 1500
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_f5bd87e8b8",
+      "type": "util.custom_js",
+      "name": "Assert cookie banner gone",
+      "config": {
+        "script": "\n(() => {\n\n  const isVisible = (el) => {\n    if (!el || !(el instanceof Element)) return false;\n    if (el.closest('[hidden], [aria-hidden=\"true\"]')) return false;\n    if (typeof el.checkVisibility === 'function') {\n      try {\n        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });\n      } catch (e) { /* fall through */ }\n    }\n    const style = window.getComputedStyle(el);\n    if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {\n      return false;\n    }\n    const r = el.getBoundingClientRect();\n    return r.width > 2 && r.height > 2;\n  };\n  const labelOf = (el) =>\n    (el.innerText || el.value || el.getAttribute('aria-label') || el.textContent || '')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .toLowerCase();\n\n  const dialogs = Array.from(\n    document.querySelectorAll(\n      '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n      '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i]'\n    )\n  );\n  for (const d of dialogs) {\n    if (!isVisible(d)) continue;\n    const t = (d.innerText || '').toLowerCase();\n    if (\n      t.includes('accept all') || t.includes('we value your privacy') ||\n      (t.includes('cookie') && t.includes('accept'))\n    ) {\n      throw new Error('Cookie / privacy banner still blocking the page');\n    }\n  }\n  const still = Array.from(document.querySelectorAll('button, [role=\"button\"]')).some((el) => {\n    if (!isVisible(el)) return false;\n    const t = labelOf(el);\n    return t.includes('accept all cookies') || t === 'accept all';\n  });\n  if (still) throw new Error('Accept all cookies control still visible');\n  return 'modal-gone';\n})()\n",
+        "expect_contains": "modal-gone"
+      },
+      "enabled": true,
+      "notes": "Hard fail if Accept all / cookie dialog still visible"
+    },
+    {
+      "id": "stp_340cfd7e08",
+      "type": "assert.element_exists",
+      "name": "Landing document loaded",
+      "config": {
+        "selector": "body",
+        "timeout_ms": 20000
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_0803925853",
+      "type": "assert.text_contains",
+      "name": "Page shows Temu",
+      "config": {
+        "selector": "body",
+        "text": "Temu",
+        "timeout_ms": 20000,
+        "ignore_case": true
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_5f4406aefa",
+      "type": "util.custom_js",
+      "name": "Landing still interactive",
+      "config": {
+        "script": "(() => { const n = document.querySelectorAll('a,button,input').length; if (n < 3) throw new Error('Too few interactive nodes: ' + n); return 'nodes:' + n; })()"
+      },
+      "enabled": true,
+      "notes": ""
+    },
+    {
+      "id": "stp_9016511786",
+      "type": "ui.screenshot",
+      "name": "Landing screenshot",
+      "config": {
+        "label": "temu_landing_utm"
+      },
+      "enabled": true,
+      "notes": ""
+    }
+  ]
+}

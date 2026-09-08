@@ -7,10 +7,10 @@
     "search"
   ],
   "suite": "UI Coverage",
-  "version": 1,
+  "version": 17,
   "steps": [
     {
-      "id": "stp_8d2b8a8278",
+      "id": "stp_ff8819ebd9",
       "type": "ui.goto",
       "name": "Open Temu homepage",
       "config": {
@@ -21,7 +21,7 @@
       "notes": ""
     },
     {
-      "id": "stp_a2a41b1c60",
+      "id": "stp_0c348114ea",
       "type": "ui.wait",
       "name": "Wait for cookie dialog",
       "config": {
@@ -31,17 +31,17 @@
       "notes": ""
     },
     {
-      "id": "stp_ee8da14b85",
+      "id": "stp_995abf3601",
       "type": "util.custom_js",
       "name": "Accept cookies",
       "config": {
-        "script": "\n(() => {\n\n  const isVisible = (el) => {\n    if (!el || !(el instanceof Element)) return false;\n    if (el.closest('[hidden], [aria-hidden=\"true\"]')) return false;\n    if (typeof el.checkVisibility === 'function') {\n      try {\n        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });\n      } catch (e) { /* fall through */ }\n    }\n    const style = window.getComputedStyle(el);\n    if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {\n      return false;\n    }\n    const r = el.getBoundingClientRect();\n    return r.width > 2 && r.height > 2;\n  };\n  const labelOf = (el) =>\n    (el.innerText || el.value || el.getAttribute('aria-label') || el.textContent || '')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .toLowerCase();\n\n  const labels = [\n    'accept all',\n    'accept all cookies',\n    'accept cookies',\n    'allow all',\n    'allow cookies',\n    'i agree',\n    'agree',\n    'got it',\n    'continue',\n    'accept',\n    'ok',\n  ];\n  // Prefer known CMP buttons (OneTrust / Cookiebot / Temu variants)\n  const preferred = [\n    '#onetrust-accept-btn-handler',\n    '#accept-recommended-btn-handler',\n    'button#onetrust-accept-btn-handler',\n    '[data-testid*=\"accept\" i]',\n    '[id*=\"accept\" i][role=\"button\"]',\n    'button[aria-label*=\"Accept\" i]',\n  ];\n  for (const sel of preferred) {\n    try {\n      const el = document.querySelector(sel);\n      if (el && isVisible(el)) {\n        el.click();\n        return 'clicked-sel:' + sel.slice(0, 48);\n      }\n    } catch (e) {}\n  }\n  const modalVisible = () => {\n    const dialogs = Array.from(\n      document.querySelectorAll(\n        '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n        '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i], [class*=\"privacy\" i]'\n      )\n    );\n    for (const d of dialogs) {\n      if (!isVisible(d)) continue;\n      const t = (d.innerText || '').toLowerCase();\n      if (\n        t.includes('cookie') || t.includes('privacy') || t.includes('consent') ||\n        t.includes('accept all') || t.includes('we value your privacy')\n      ) return true;\n    }\n    return Array.from(document.querySelectorAll('button, [role=\"button\"]')).some((el) => {\n      if (!isVisible(el)) return false;\n      const t = labelOf(el);\n      return t.includes('accept all') || t === 'accept cookies' || t.includes('allow all');\n    });\n  };\n  const clickMatch = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(\n      root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]')\n    );\n    for (const el of nodes) {\n      if (!isVisible(el)) continue;\n      const t = labelOf(el);\n      if (!t) continue;\n      if (\n        t.includes('reject') || t.includes('decline') || t.includes('refuse') ||\n        t.includes('manage') || t.includes('settings') || t.includes('customize') ||\n        t.includes('preferences') || t.includes('do not sell')\n      ) continue;\n      if (labels.some((l) => t === l || t.includes(l))) {\n        el.click();\n        return 'clicked:' + t.slice(0, 48);\n      }\n    }\n    return null;\n  };\n  const dialogs = Array.from(\n    document.querySelectorAll(\n      '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n      '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i]'\n    )\n  );\n  let hit = null;\n  for (const d of dialogs) {\n    hit = clickMatch(d);\n    if (hit) break;\n  }\n  if (!hit) hit = clickMatch(document.body);\n  if (hit) return hit;\n  if (modalVisible()) {\n    throw new Error('Cookie / privacy banner still visible \u2014 failed to Accept');\n  }\n  return 'no-banner';\n})()\n"
+        "script": "\n(() => {\n\n  const isVisible = (el) => {\n    if (!el || !(el instanceof Element)) return false;\n    if (el.closest('[hidden], [aria-hidden=\"true\"]')) return false;\n    if (typeof el.checkVisibility === 'function') {\n      try {\n        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });\n      } catch (e) { /* fall through */ }\n    }\n    const style = window.getComputedStyle(el);\n    if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {\n      return false;\n    }\n    const r = el.getBoundingClientRect();\n    return r.width > 2 && r.height > 2;\n  };\n  const labelOf = (el) =>\n    (el.innerText || el.value || el.getAttribute('aria-label') || el.textContent || '')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .toLowerCase();\n\n  // Longer / exact phrases first. Never use bare 'ok' (matches inside 'cookies').\n  const preferExact = [\n    'accept all cookies',\n    'accept all',\n    'allow all cookies',\n    'allow all',\n    'accept cookies',\n    'i agree',\n    'got it',\n  ];\n  const preferContains = [\n    'accept all cookies',\n    'accept all',\n    'allow all',\n    'accept cookies',\n  ];\n  const skipRe = /reject|decline|refuse|manage|settings|preferences|customise|customize|do not sell|necessary only|essential only/;\n\n  const preferred = [\n    '#onetrust-accept-btn-handler',\n    '#accept-recommended-btn-handler',\n    'button#onetrust-accept-btn-handler',\n    '[data-testid*=\"accept-all\" i]',\n    '[data-testid=\"accept-all\"]',\n    'button[aria-label*=\"Accept all\" i]',\n    'button[aria-label=\"Accept all cookies\"]',\n  ];\n  for (const sel of preferred) {\n    try {\n      const el = document.querySelector(sel);\n      if (el && isVisible(el)) {\n        el.click();\n        return 'clicked-sel:' + sel.slice(0, 48);\n      }\n    } catch (e) {}\n  }\n\n  const modalVisible = () => {\n    const dialogs = Array.from(\n      document.querySelectorAll(\n        '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n        '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i], [class*=\"privacy\" i]'\n      )\n    );\n    for (const d of dialogs) {\n      if (!isVisible(d)) continue;\n      const t = (d.innerText || '').toLowerCase();\n      if (\n        t.includes('accept all') || t.includes('we value your privacy') ||\n        (t.includes('cookie') && (t.includes('accept') || t.includes('consent')))\n      ) return true;\n    }\n    return Array.from(document.querySelectorAll('button, [role=\"button\"]')).some((el) => {\n      if (!isVisible(el)) return false;\n      const t = labelOf(el);\n      return t === 'accept all' || t.includes('accept all cookies') || t.includes('accept all');\n    });\n  };\n\n  const scoreClick = (el) => {\n    if (!isVisible(el)) return null;\n    const t = labelOf(el);\n    if (!t || skipRe.test(t)) return null;\n    for (const l of preferExact) {\n      if (t === l) return { el, t, score: 100 };\n    }\n    for (let i = 0; i < preferContains.length; i++) {\n      const l = preferContains[i];\n      if (t.includes(l)) return { el, t, score: 80 - i };\n    }\n    // Bare 'accept' / 'agree' only as exact match (not 'customise cookies')\n    if (t === 'accept' || t === 'agree' || t === 'allow') return { el, t, score: 40 };\n    return null;\n  };\n\n  const clickBest = (root) => {\n    if (!root) return null;\n    const nodes = Array.from(\n      root.querySelectorAll('button, [role=\"button\"], a, input[type=\"button\"], input[type=\"submit\"]')\n    );\n    let best = null;\n    for (const el of nodes) {\n      const hit = scoreClick(el);\n      if (!hit) continue;\n      if (!best || hit.score > best.score) best = hit;\n    }\n    if (!best) return null;\n    best.el.click();\n    return 'clicked:' + best.t.slice(0, 48);\n  };\n\n  const dialogs = Array.from(\n    document.querySelectorAll(\n      '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n      '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i]'\n    )\n  );\n  let hit = null;\n  for (const d of dialogs) {\n    hit = clickBest(d);\n    if (hit) break;\n  }\n  if (!hit) hit = clickBest(document.body);\n  if (hit) return hit;\n  if (modalVisible()) {\n    throw new Error('Cookie / privacy banner still visible \u2014 failed to Accept all');\n  }\n  return 'no-banner';\n})()\n"
       },
       "enabled": true,
       "notes": "Clicks Accept all / OneTrust / common CMP buttons; fails if banner stays"
     },
     {
-      "id": "stp_3480f5ae43",
+      "id": "stp_0f1e06e43e",
       "type": "ui.wait",
       "name": "Settle after consent",
       "config": {
@@ -51,18 +51,18 @@
       "notes": ""
     },
     {
-      "id": "stp_4aa832549b",
+      "id": "stp_2bfea13fcf",
       "type": "util.custom_js",
       "name": "Assert cookie banner gone",
       "config": {
-        "script": "\n(() => {\n\n  const isVisible = (el) => {\n    if (!el || !(el instanceof Element)) return false;\n    if (el.closest('[hidden], [aria-hidden=\"true\"]')) return false;\n    if (typeof el.checkVisibility === 'function') {\n      try {\n        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });\n      } catch (e) { /* fall through */ }\n    }\n    const style = window.getComputedStyle(el);\n    if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {\n      return false;\n    }\n    const r = el.getBoundingClientRect();\n    return r.width > 2 && r.height > 2;\n  };\n  const labelOf = (el) =>\n    (el.innerText || el.value || el.getAttribute('aria-label') || el.textContent || '')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .toLowerCase();\n\n  const dialogs = Array.from(\n    document.querySelectorAll(\n      '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n      '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i]'\n    )\n  );\n  for (const d of dialogs) {\n    if (!isVisible(d)) continue;\n    const t = (d.innerText || '').toLowerCase();\n    if (\n      t.includes('accept all') || t.includes('we value your privacy') ||\n      (t.includes('cookie') && t.includes('accept'))\n    ) {\n      throw new Error('Cookie / privacy banner still blocking the page');\n    }\n  }\n  const still = Array.from(document.querySelectorAll('button, [role=\"button\"]')).some((el) => {\n    if (!isVisible(el)) return false;\n    const t = labelOf(el);\n    return t.includes('accept all cookies') || t === 'accept all';\n  });\n  if (still) throw new Error('Accept all cookies control still visible');\n  return 'modal-gone';\n})()\n",
+        "script": "\n(() => {\n\n  const isVisible = (el) => {\n    if (!el || !(el instanceof Element)) return false;\n    if (el.closest('[hidden], [aria-hidden=\"true\"]')) return false;\n    if (typeof el.checkVisibility === 'function') {\n      try {\n        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });\n      } catch (e) { /* fall through */ }\n    }\n    const style = window.getComputedStyle(el);\n    if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {\n      return false;\n    }\n    const r = el.getBoundingClientRect();\n    return r.width > 2 && r.height > 2;\n  };\n  const labelOf = (el) =>\n    (el.innerText || el.value || el.getAttribute('aria-label') || el.textContent || '')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .toLowerCase();\n\n  const dialogs = Array.from(\n    document.querySelectorAll(\n      '[role=\"dialog\"], [aria-modal=\"true\"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +\n      '[id*=\"cookie\" i], [class*=\"cookie\" i], [id*=\"consent\" i], [class*=\"consent\" i]'\n    )\n  );\n  for (const d of dialogs) {\n    if (!isVisible(d)) continue;\n    const t = (d.innerText || '').toLowerCase();\n    // Preference centre opened via Customise should still count as blocking\n    if (\n      t.includes('accept all') || t.includes('we value your privacy') ||\n      t.includes('customise cookies') || t.includes('customize cookies') ||\n      (t.includes('cookie') && t.includes('consent') && (t.includes('accept') || t.includes('reject')))\n    ) {\n      throw new Error('Cookie / privacy banner still blocking the page');\n    }\n  }\n  const still = Array.from(document.querySelectorAll('button, [role=\"button\"]')).some((el) => {\n    if (!isVisible(el)) return false;\n    const t = labelOf(el);\n    return t === 'accept all' || t.includes('accept all cookies') || t.includes('accept all');\n  });\n  if (still) throw new Error('Accept all cookies control still visible');\n  return 'modal-gone';\n})()\n",
         "expect_contains": "modal-gone"
       },
       "enabled": true,
       "notes": "Hard fail if Accept all / cookie dialog still visible"
     },
     {
-      "id": "stp_cd5d96dc2d",
+      "id": "stp_9bc905776d",
       "type": "util.custom_js",
       "name": "Fill homepage search",
       "config": {
@@ -72,7 +72,7 @@
       "notes": ""
     },
     {
-      "id": "stp_921499384b",
+      "id": "stp_ad6b6f1be5",
       "type": "ui.wait",
       "name": "After fill",
       "config": {
@@ -82,7 +82,7 @@
       "notes": ""
     },
     {
-      "id": "stp_4169e03334",
+      "id": "stp_dbcbd50de7",
       "type": "util.custom_js",
       "name": "Submit search",
       "config": {
@@ -92,7 +92,7 @@
       "notes": ""
     },
     {
-      "id": "stp_14b4d802f4",
+      "id": "stp_3b9e94f7a8",
       "type": "ui.wait",
       "name": "Wait for search reaction",
       "config": {
@@ -102,7 +102,7 @@
       "notes": ""
     },
     {
-      "id": "stp_6d561da94e",
+      "id": "stp_b1e72864a1",
       "type": "assert.element_exists",
       "name": "Page responsive after search",
       "config": {
@@ -113,7 +113,7 @@
       "notes": ""
     },
     {
-      "id": "stp_b8f932e326",
+      "id": "stp_741c06c8aa",
       "type": "ui.screenshot",
       "name": "After search",
       "config": {

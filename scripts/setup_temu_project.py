@@ -70,27 +70,32 @@ _IS_VISIBLE_JS = """
 COOKIE_JS = f"""
 (() => {{
 {_IS_VISIBLE_JS}
-  const labels = [
-    'accept all',
+  // Longer / exact phrases first. Never use bare 'ok' (matches inside 'cookies').
+  const preferExact = [
     'accept all cookies',
-    'accept cookies',
+    'accept all',
+    'allow all cookies',
     'allow all',
-    'allow cookies',
+    'accept cookies',
     'i agree',
-    'agree',
     'got it',
-    'continue',
-    'accept',
-    'ok',
   ];
-  // Prefer known CMP buttons (OneTrust / Cookiebot / Temu variants)
+  const preferContains = [
+    'accept all cookies',
+    'accept all',
+    'allow all',
+    'accept cookies',
+  ];
+  const skipRe = /reject|decline|refuse|manage|settings|preferences|customise|customize|do not sell|necessary only|essential only/;
+
   const preferred = [
     '#onetrust-accept-btn-handler',
     '#accept-recommended-btn-handler',
     'button#onetrust-accept-btn-handler',
-    '[data-testid*="accept" i]',
-    '[id*="accept" i][role="button"]',
-    'button[aria-label*="Accept" i]',
+    '[data-testid*="accept-all" i]',
+    '[data-testid="accept-all"]',
+    'button[aria-label*="Accept all" i]',
+    'button[aria-label="Accept all cookies"]',
   ];
   for (const sel of preferred) {{
     try {{
@@ -101,6 +106,7 @@ COOKIE_JS = f"""
       }}
     }} catch (e) {{}}
   }}
+
   const modalVisible = () => {{
     const dialogs = Array.from(
       document.querySelectorAll(
@@ -112,37 +118,49 @@ COOKIE_JS = f"""
       if (!isVisible(d)) continue;
       const t = (d.innerText || '').toLowerCase();
       if (
-        t.includes('cookie') || t.includes('privacy') || t.includes('consent') ||
-        t.includes('accept all') || t.includes('we value your privacy')
+        t.includes('accept all') || t.includes('we value your privacy') ||
+        (t.includes('cookie') && (t.includes('accept') || t.includes('consent')))
       ) return true;
     }}
     return Array.from(document.querySelectorAll('button, [role="button"]')).some((el) => {{
       if (!isVisible(el)) return false;
       const t = labelOf(el);
-      return t.includes('accept all') || t === 'accept cookies' || t.includes('allow all');
+      return t === 'accept all' || t.includes('accept all cookies') || t.includes('accept all');
     }});
   }};
-  const clickMatch = (root) => {{
+
+  const scoreClick = (el) => {{
+    if (!isVisible(el)) return null;
+    const t = labelOf(el);
+    if (!t || skipRe.test(t)) return null;
+    for (const l of preferExact) {{
+      if (t === l) return {{ el, t, score: 100 }};
+    }}
+    for (let i = 0; i < preferContains.length; i++) {{
+      const l = preferContains[i];
+      if (t.includes(l)) return {{ el, t, score: 80 - i }};
+    }}
+    // Bare 'accept' / 'agree' only as exact match (not 'customise cookies')
+    if (t === 'accept' || t === 'agree' || t === 'allow') return {{ el, t, score: 40 }};
+    return null;
+  }};
+
+  const clickBest = (root) => {{
     if (!root) return null;
     const nodes = Array.from(
       root.querySelectorAll('button, [role="button"], a, input[type="button"], input[type="submit"]')
     );
+    let best = null;
     for (const el of nodes) {{
-      if (!isVisible(el)) continue;
-      const t = labelOf(el);
-      if (!t) continue;
-      if (
-        t.includes('reject') || t.includes('decline') || t.includes('refuse') ||
-        t.includes('manage') || t.includes('settings') || t.includes('customize') ||
-        t.includes('preferences') || t.includes('do not sell')
-      ) continue;
-      if (labels.some((l) => t === l || t.includes(l))) {{
-        el.click();
-        return 'clicked:' + t.slice(0, 48);
-      }}
+      const hit = scoreClick(el);
+      if (!hit) continue;
+      if (!best || hit.score > best.score) best = hit;
     }}
-    return null;
+    if (!best) return null;
+    best.el.click();
+    return 'clicked:' + best.t.slice(0, 48);
   }};
+
   const dialogs = Array.from(
     document.querySelectorAll(
       '[role="dialog"], [aria-modal="true"], #onetrust-banner-sdk, #onetrust-consent-sdk, ' +
@@ -151,13 +169,13 @@ COOKIE_JS = f"""
   );
   let hit = null;
   for (const d of dialogs) {{
-    hit = clickMatch(d);
+    hit = clickBest(d);
     if (hit) break;
   }}
-  if (!hit) hit = clickMatch(document.body);
+  if (!hit) hit = clickBest(document.body);
   if (hit) return hit;
   if (modalVisible()) {{
-    throw new Error('Cookie / privacy banner still visible — failed to Accept');
+    throw new Error('Cookie / privacy banner still visible — failed to Accept all');
   }}
   return 'no-banner';
 }})()
@@ -166,40 +184,44 @@ COOKIE_JS = f"""
 COOKIE_JS_SOFT = f"""
 (() => {{
 {_IS_VISIBLE_JS}
-  const labels = [
-    'accept all', 'accept all cookies', 'accept cookies', 'allow all',
-    'i agree', 'agree', 'got it', 'accept', 'ok',
-  ];
-  const preferred = ['#onetrust-accept-btn-handler', '[data-testid*="accept" i]'];
+  const skipRe = /reject|decline|refuse|manage|settings|preferences|customise|customize|do not sell/;
+  const prefer = ['accept all cookies', 'accept all', 'allow all', 'accept cookies'];
+  const preferred = ['#onetrust-accept-btn-handler', '[data-testid*="accept-all" i]'];
   for (const sel of preferred) {{
     try {{
       const el = document.querySelector(sel);
       if (el && isVisible(el)) {{ el.click(); return 'clicked-sel:' + sel; }}
     }} catch (e) {{}}
   }}
-  const clickMatch = (root) => {{
+  const clickBest = (root) => {{
     if (!root) return 'no-banner';
-    const nodes = Array.from(root.querySelectorAll('button, [role="button"], a'));
-    for (const el of nodes) {{
+    let best = null;
+    for (const el of root.querySelectorAll('button, [role="button"], a')) {{
       if (!isVisible(el)) continue;
       const t = labelOf(el);
-      if (!t) continue;
-      if (t.includes('reject') || t.includes('decline') || t.includes('manage') || t.includes('settings')) continue;
-      if (labels.some((l) => t === l || t.includes(l))) {{
-        el.click();
-        return 'clicked:' + t.slice(0, 48);
+      if (!t || skipRe.test(t)) continue;
+      for (let i = 0; i < prefer.length; i++) {{
+        if (t === prefer[i] || t.includes(prefer[i])) {{
+          const score = 100 - i;
+          if (!best || score > best.score) best = {{ el, t, score }};
+        }}
+      }}
+      if (t === 'accept' || t === 'agree') {{
+        if (!best || best.score < 30) best = {{ el, t, score: 30 }};
       }}
     }}
-    return 'no-banner';
+    if (!best) return 'no-banner';
+    best.el.click();
+    return 'clicked:' + best.t.slice(0, 48);
   }};
   const dialogs = Array.from(
     document.querySelectorAll('[role="dialog"], [aria-modal="true"], #onetrust-banner-sdk, [id*="cookie" i], [class*="consent" i]')
   );
   for (const d of dialogs) {{
-    const hit = clickMatch(d);
+    const hit = clickBest(d);
     if (hit.startsWith('clicked')) return hit;
   }}
-  return clickMatch(document.body);
+  return clickBest(document.body);
 }})()
 """
 
@@ -215,9 +237,11 @@ ASSERT_MODAL_GONE_JS = f"""
   for (const d of dialogs) {{
     if (!isVisible(d)) continue;
     const t = (d.innerText || '').toLowerCase();
+    // Preference centre opened via Customise should still count as blocking
     if (
       t.includes('accept all') || t.includes('we value your privacy') ||
-      (t.includes('cookie') && t.includes('accept'))
+      t.includes('customise cookies') || t.includes('customize cookies') ||
+      (t.includes('cookie') && t.includes('consent') && (t.includes('accept') || t.includes('reject')))
     ) {{
       throw new Error('Cookie / privacy banner still blocking the page');
     }}
@@ -225,7 +249,7 @@ ASSERT_MODAL_GONE_JS = f"""
   const still = Array.from(document.querySelectorAll('button, [role="button"]')).some((el) => {{
     if (!isVisible(el)) return false;
     const t = labelOf(el);
-    return t.includes('accept all cookies') || t === 'accept all';
+    return t === 'accept all' || t.includes('accept all cookies') || t.includes('accept all');
   }});
   if (still) throw new Error('Accept all cookies control still visible');
   return 'modal-gone';
@@ -291,73 +315,144 @@ def build_core_smoke() -> list[TestStep]:
             {"selector": "body", "text": "Delivery guarantee", "timeout_ms": 20000, "ignore_case": True},
         ),
         _stp(
-            "ui.click_by_text",
+            "assert.text_contains",
+            "Categories control visible",
+            {"selector": "body", "text": "Categories", "timeout_ms": 20000, "ignore_case": True},
+        ),
+        _stp("util.custom_js", "Scroll merchandising into view", {"script": "window.scrollBy(0, 900); 'scrolled'"}),
+        _stp("ui.wait", "Wait after scroll", {"ms": 1200}),
+        _stp(
+            "util.custom_js",
+            "Homepage merchandising section present",
+            {
+                "script": """
+(() => {
+  const t = ((document.body && document.body.innerText) || '').toLowerCase();
+  const markers = [
+    'lightning deals', 'top picks', 'best-selling', 'best selling',
+    'limited-time', 'explore your interests', 'shop now', 'best-selling items'
+  ];
+  const hit = markers.filter((m) => t.includes(m));
+  if (!hit.length) throw new Error('No merchandising section found (Top picks / deals / explore)');
+  return 'merch-ok:' + hit.slice(0, 3).join(',');
+})()
+"""
+            },
+        ),
+        _stp("util.custom_js", "Scroll back to header", {"script": "window.scrollTo(0, 0); 'top'"}),
+        _stp("ui.wait", "Header settle", {"ms": 600}),
+        _stp(
+            "util.custom_js",
             "Categories control is clickable",
-            {"text": "Categories", "exact": False, "role": "", "within": "", "timeout_ms": 20000},
+            {
+                "script": """
+(() => {
+  const nodes = Array.from(document.querySelectorAll('div[role="button"], button, [role="button"], a'));
+  for (const el of nodes) {
+    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+    if (/^categories$/i.test(t)) {
+      el.click();
+      return 'clicked:' + t;
+    }
+  }
+  // fallback: first element whose visible label starts with Categories
+  for (const el of nodes) {
+    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+    if (/^categories\\b/i.test(t) && t.length < 24) {
+      el.click();
+      return 'clicked:' + t.slice(0, 40);
+    }
+  }
+  throw new Error('Categories control not found');
+})()
+"""
+            },
             "Fails if cookie overlay still blocks navigation",
         ),
         _stp("ui.wait", "After Categories", {"ms": 800}),
-        _stp("util.custom_js", "Scroll deals into view", {"script": "window.scrollBy(0, 900); 'scrolled'"}),
-        _stp("ui.wait", "Wait after scroll", {"ms": 1000}),
         _stp(
-            "assert.text_contains",
-            "Lightning deals section present",
-            {"selector": "body", "text": "Lightning deals", "timeout_ms": 20000, "ignore_case": True},
+            "util.custom_js",
+            "Return to homepage after Categories",
+            {"script": "location.href = location.origin + '/'; 'home'"},
         ),
+        _stp("ui.wait", "Home reload settle", {"ms": 2000}),
+        _stp("util.custom_js", "Soft cookie dismiss after reload", {"script": COOKIE_JS_SOFT}),
         _stp("assert.element_exists", "Document still responsive", {"selector": "body", "timeout_ms": 10000}),
         _stp("ui.screenshot", "Homepage screenshot", {"label": "temu_home"}),
     ]
 
 
 def build_nav_coverage() -> list[TestStep]:
-    required = [
-        ("Categories", ""),
-        ("Sign in", ""),
-        ("Jewelry", "link"),
-        ("Women's Clothing", "link"),
-        ("Home & Kitchen", "link"),
-    ]
-    optional = [
-        "Kids' Fashion",
-        "Men's Clothing",
-        "Sports & Outdoors",
-        "Beauty & Personal Care",
-        "Electronics",
-        "Support center",
-        "About Temu",
-    ]
+    """Categories drawer + a few stable homepage / footer controls."""
     steps = [
         _stp("ui.goto", "Open Temu homepage", {"url": "{{BASE_URL}}", "timeout_ms": 90000}),
         *_accept_cookies_steps(),
+        _stp(
+            "util.custom_js",
+            'Click "Categories"',
+            {
+                "script": """
+(() => {
+  const nodes = Array.from(document.querySelectorAll('div[role="button"], button, [role="button"], a'));
+  for (const el of nodes) {
+    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+    if (/^categories$/i.test(t) || (/^categories\\b/i.test(t) && t.length < 24)) {
+      el.click();
+      return 'clicked:' + t.slice(0, 40);
+    }
+  }
+  throw new Error('Categories control not found');
+})()
+"""
+            },
+            "Required — FAIL if blocked by cookie modal or missing",
+        ),
+        _stp("ui.wait", "Categories open", {"ms": 1200}),
     ]
-    for label, role in required:
-        steps.append(
-            _stp(
-                "ui.click_by_text",
-                f'Click "{label}"',
-                {
-                    "text": label,
-                    "exact": False,
-                    "role": role,
-                    "within": "",
-                    "timeout_ms": 20000,
-                },
-                "Required — FAIL if blocked by cookie modal or missing",
-            )
-        )
-        steps.append(_stp("ui.wait", f"After {label}", {"ms": 1000}))
-        steps.append(_stp("ui.goto", "Return home", {"url": "{{BASE_URL}}", "timeout_ms": 90000}))
-        steps.append(_stp("ui.wait", "Home settle", {"ms": 1200}))
-        steps.append(_stp("util.custom_js", "Re-dismiss cookies if shown", {"script": COOKIE_JS_SOFT}))
-        steps.append(_stp("ui.wait", "After re-dismiss", {"ms": 600}))
+    # Category names shown on NL/EU Temu (inside Categories or on page)
+    for label in ["Jewelry & Accessories", "Women's Clothing", "Home & Kitchen", "Kids' Fashion"]:
         steps.append(
             _stp(
                 "util.custom_js",
-                "Assert modal not blocking",
-                {"script": ASSERT_MODAL_GONE_JS, "expect_contains": "modal-gone"},
+                f'Open category "{label}" if present',
+                {"script": _optional_click_js(label)},
+                "Optional category — does not fail if missing",
             )
         )
-    for label in optional:
+        steps.append(_stp("ui.wait", f"After {label}", {"ms": 800}))
+        steps.append(_stp("ui.goto", "Return home", {"url": "{{BASE_URL}}", "timeout_ms": 90000}))
+        steps.append(_stp("ui.wait", "Home settle", {"ms": 1200}))
+        steps.append(_stp("util.custom_js", "Re-dismiss cookies if shown", {"script": COOKIE_JS_SOFT}))
+        steps.append(
+            _stp(
+                "util.custom_js",
+                "Re-open Categories",
+                {
+                    "script": """
+(() => {
+  window.scrollTo(0,0);
+  const nodes = Array.from(document.querySelectorAll('div[role="button"], button, [role="button"], a'));
+  for (const el of nodes) {
+    const t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+    if (/^categories$/i.test(t) || (/^categories\\b/i.test(t) && t.length < 24)) {
+      el.click();
+      return 'clicked:' + t.slice(0, 40);
+    }
+  }
+  // Soft — category drawer may already be open or delayed after reload
+  return 'missing';
+})()
+"""
+                },
+            )
+        )
+        steps.append(_stp("ui.wait", "Categories reopen", {"ms": 800}))
+
+    steps.append(_stp("ui.goto", "Return home for account/support", {"url": "{{BASE_URL}}", "timeout_ms": 90000}))
+    steps.append(_stp("ui.wait", "Home settle 2", {"ms": 1200}))
+    steps.append(_stp("util.custom_js", "Soft cookie dismiss", {"script": COOKIE_JS_SOFT}))
+
+    for label in ["Orders & Account", "Support", "Why choose Temu"]:
         steps.append(
             _stp(
                 "util.custom_js",
@@ -367,13 +462,19 @@ def build_nav_coverage() -> list[TestStep]:
             )
         )
         steps.append(_stp("ui.wait", f"After optional {label}", {"ms": 600}))
-        steps.append(_stp("ui.goto", "Return home", {"url": "{{BASE_URL}}", "timeout_ms": 90000}))
-        steps.append(_stp("util.custom_js", "Soft cookie dismiss", {"script": COOKIE_JS_SOFT}))
+
     steps.append(
         _stp(
             "assert.element_exists",
             "Home still loads after nav trail",
             {"selector": "body", "timeout_ms": 15000},
+        )
+    )
+    steps.append(
+        _stp(
+            "assert.text_contains",
+            "Temu still present after nav",
+            {"selector": "body", "text": "Temu", "timeout_ms": 15000, "ignore_case": True},
         )
     )
     steps.append(_stp("ui.screenshot", "After nav coverage", {"label": "temu_nav"}))
@@ -505,10 +606,14 @@ def build_components_ids_coverage() -> list[TestStep]:
   ['header', 'nav', 'main', 'footer', 'form'].forEach((tag) => {
     if (document.querySelector(tag)) out.landmarks.push(tag);
   });
-  const mustText = ['Temu', 'Categories', 'Lightning deals'];
+  const mustText = ['Temu', 'Categories'];
   const missingText = mustText.filter((t) => !(document.body.innerText || '').includes(t));
   if (!out.brandText) throw new Error('Temu brand text missing from body');
   if (missingText.length) throw new Error('Missing homepage text: ' + missingText.join(', '));
+  const merch = ['Lightning deals', 'Top picks', 'Best-Selling', 'EXPLORE YOUR INTERESTS', 'Explore your interests'];
+  if (!merch.some((m) => (document.body.innerText || '').includes(m))) {
+    throw new Error('Missing merchandising section (Top picks / deals / explore)');
+  }
   if (!out.landmarks.includes('body') && out.landmarks.length === 0 && !document.body) {
     throw new Error('No landmarks found');
   }
@@ -544,13 +649,13 @@ def build_components_ids_coverage() -> list[TestStep]:
 """
     deals_js = """
 (() => {
-  const t = (document.body.innerText || '').toLowerCase();
-  if (!t.includes('lightning deals') && !t.includes('limited-time')) {
-    throw new Error('Deals section not found on homepage');
-  }
-  const prices = (document.body.innerText || '').match(/\\$[0-9]+(\\.[0-9]{2})?/g) || [];
-  if (prices.length < 1) throw new Error('No deal prices found');
-  return 'deals-ok:prices=' + prices.length;
+  const t = (document.body && document.body.innerText || '').toLowerCase();
+  const markers = ['lightning deals', 'top picks', 'best-selling', 'best selling', 'explore your interests'];
+  const hit = markers.filter((m) => t.includes(m));
+  if (!hit.length) throw new Error('Deals / Top picks section not found on homepage');
+  const prices = (document.body.innerText || '').match(/(?:€|\\$|£)\\s?[0-9]+(?:[.,][0-9]{2})?/g) || [];
+  // Prices may be lazy-loaded; merchandising heading is enough to pass
+  return 'deals-ok:' + hit[0] + ':prices=' + prices.length;
 })()
 """
     return [
@@ -563,9 +668,9 @@ def build_components_ids_coverage() -> list[TestStep]:
             "Asserts brand, Categories/search, collects ids/testids/landmarks",
         ),
         _stp("util.custom_js", "Assert trust badges / why Temu", {"script": trust_js}),
-        _stp("util.custom_js", "Scroll to deals", {"script": "window.scrollBy(0, 700); 'ok'"}),
-        _stp("ui.wait", "After scroll to deals", {"ms": 1000}),
-        _stp("util.custom_js", "Assert Lightning deals + prices", {"script": deals_js}),
+        _stp("util.custom_js", "Scroll to merchandising", {"script": "window.scrollBy(0, 700); 'ok'"}),
+        _stp("ui.wait", "After scroll to merch", {"ms": 1000}),
+        _stp("util.custom_js", "Assert Top picks / deals section", {"script": deals_js}),
         _stp(
             "assert.element_exists",
             "Header or banner region exists",

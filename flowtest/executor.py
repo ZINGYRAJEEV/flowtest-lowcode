@@ -352,11 +352,32 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
         elif stype == "ui.screenshot":
             if page is None:
                 raise RuntimeError("Browser not available")
-            label = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(cfg.get("label", "shot")))
+            label = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(cfg.get("label", "shot") or cfg.get("name", "shot")))
             path = ARTIFACTS_DIR / f"{label}_{int(time.time())}.png"
-            page.screenshot(path=str(path))
-            screenshot = str(path)
-            detail = f"Saved {path.name}"
+            full_page = bool(cfg.get("full_page", False))
+            timeout = int(cfg.get("timeout_ms") or 10000)
+            try:
+                # Avoid infinite font waits on heavy commerce sites
+                page.evaluate(
+                    """() => {
+                      try {
+                        if (document.fonts && document.fonts.clear) document.fonts.clear();
+                      } catch (e) {}
+                      return true;
+                    }"""
+                )
+                page.screenshot(
+                    path=str(path),
+                    full_page=full_page,
+                    timeout=timeout,
+                    animations="disabled",
+                )
+                screenshot = str(path)
+                detail = f"Saved {path.name}"
+            except Exception as exc:
+                # Evidence is best-effort — do not fail the test on screenshot/font hangs
+                detail = f"Screenshot skipped ({str(exc).splitlines()[0][:120]})"
+                screenshot = ""
 
         elif stype == "ui.copy_text":
             if page is None:

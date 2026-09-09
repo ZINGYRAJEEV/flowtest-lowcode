@@ -56,7 +56,25 @@ CLI equivalent:
 ```bash
 python -m flowtest.cli list-suites
 python -m flowtest.cli run-suite --suite Smoke --env-name Staging --project-id <ID>
+python -m flowtest.cli run-suite --project-name Temu --suite "UI Coverage" --workers 2 --continue-on-fail
 ```
+
+### Parallel suite runs
+
+- CLI: `--workers N` on `run-suite` and `run-suite-file` (default `1`). Each test still runs in its own Playwright subprocess.
+- UI: **CI / Pipelines** → **Run suite now** (workers, continue-on-fail, headed).
+
+### Allure-style reports
+
+Every run writes Allure 2–compatible JSON + a self-contained HTML report under:
+
+`flowtest_data/allure-results/run_<run_id>/`
+
+- `{uuid}-result.json` — Allure result (optional Java `allure` CLI can consume these)
+- `report.html` — timeline-style pass/fail view with screenshots (no Java required)
+- **Runs & reports** page: download HTML report or zip of `allure-results`
+
+Suite CLI runs also emit a combined folder and include `allure_dir` / `report_html` in the summary JSON. Override with `--allure-dir`.
 
 
 ### Record locally (headed Playwright)
@@ -100,10 +118,13 @@ flowtest/
   models.py
   storage.py           # SQLite
   steps_library.py
+  ui_actions.py        # Resilient selectors (testid / role / alternates)
+  suite_runner.py      # Sequential / parallel suite execution
+  allure_report.py     # Allure JSON + HTML reports
   executor.py          # Playwright + httpx + SQL
   cli.py
 monkey_engine.py       # Exploratory monkey tool
-flowtest_data/         # DB + artifacts (created at runtime)
+flowtest_data/         # DB + artifacts + allure-results (created at runtime)
 ```
 
 ## Requirements coverage (MVP)

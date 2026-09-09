@@ -17,6 +17,7 @@ import json
 import sys
 
 from flowtest.executor import execute_test_case
+from flowtest.suite_runner import run_suite_tests
 from flowtest.storage import (
     get_environment,
     get_project,
@@ -69,9 +70,20 @@ def main(argv: list[str] | None = None) -> int:
     p_suite.add_argument("--user", default="runner")
     p_suite.add_argument("--headed", action="store_true")
     p_suite.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel workers (default 1; each test runs in its own subprocess)",
+    )
+    p_suite.add_argument(
         "--continue-on-fail",
         action="store_true",
         help="Run remaining tests even if one fails (default: stop on first failure)",
+    )
+    p_suite.add_argument(
+        "--allure-dir",
+        default=None,
+        help="Optional override directory for Allure/HTML report output",
     )
 
     p_export = sub.add_parser(
@@ -92,7 +104,18 @@ def main(argv: list[str] | None = None) -> int:
     p_file.add_argument("--env-id", default=None)
     p_file.add_argument("--user", default="runner")
     p_file.add_argument("--headed", action="store_true")
+    p_file.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel workers (default 1)",
+    )
     p_file.add_argument("--continue-on-fail", action="store_true")
+    p_file.add_argument(
+        "--allure-dir",
+        default=None,
+        help="Optional override directory for Allure/HTML report output",
+    )
 
     p_envs = sub.add_parser("list-envs", help="List environments")
 
@@ -154,41 +177,43 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
         env = _resolve_env(args)
-        results = []
-        overall_ok = True
-        for test in selected:
-            run = execute_test_case(
-                test,
-                env,
-                triggered_by=args.user,
-                trigger="cli",
-                headless=not args.headed,
-            )
-            entry = {
-                "test_id": test.id,
-                "test_name": test.name,
-                "run_id": run.id,
-                "status": run.status,
-                "duration_ms": run.duration_ms,
-            }
-            results.append(entry)
-            print(json.dumps(entry))
-            if run.status != "PASS":
-                overall_ok = False
-                if not args.continue_on_fail:
-                    break
 
-        summary = {
-            "suite": args.suite,
-            "project_id": project_id,
-            "environment": getattr(env, "name", None),
-            "total": len(selected),
-            "executed": len(results),
-            "passed": sum(1 for r in results if r["status"] == "PASS"),
-            "failed": sum(1 for r in results if r["status"] != "PASS"),
-            "status": "PASS" if overall_ok and len(results) == len(selected) else "FAIL",
-            "results": results,
-        }
+        def _print_entry(entry: dict) -> None:
+            print(json.dumps(entry))
+
+        summary = run_suite_tests(
+            selected,
+            env,
+            workers=args.workers,
+            headed=args.headed,
+            continue_on_fail=args.continue_on_fail,
+            triggered_by=args.user,
+            trigger="cli",
+            on_result=_print_entry,
+        )
+        summary["suite"] = args.suite
+        summary["project_id"] = project_id
+        summary["environment"] = getattr(env, "name", None)
+
+        # Attach suite-level Allure/HTML if available
+        try:
+            from flowtest.allure_report import write_suite_allure
+            from flowtest.storage import get_run
+
+            runs = [get_run(r["run_id"]) for r in summary["results"] if r.get("run_id")]
+            runs = [r for r in runs if r]
+            if runs:
+                report_dir = write_suite_allure(
+                    summary,
+                    runs,
+                    out_dir=args.allure_dir,
+                    label=f"suite_{args.suite}",
+                )
+                summary["allure_dir"] = str(report_dir)
+                summary["report_html"] = str(report_dir / "report.html")
+        except Exception as exc:
+            summary["allure_error"] = str(exc)[:300]
+
         print(json.dumps(summary, indent=2))
         return 0 if summary["status"] == "PASS" else 1
 
@@ -236,41 +261,41 @@ def main(argv: list[str] | None = None) -> int:
                 None,
             )
 
-        results = []
-        overall_ok = True
-        for test in selected:
-            run = execute_test_case(
-                test,
-                env,
-                triggered_by=args.user,
-                trigger="cli-file",
-                headless=not args.headed,
-            )
-            entry = {
-                "test_id": test.id,
-                "test_name": test.name,
-                "run_id": run.id,
-                "status": run.status,
-                "duration_ms": run.duration_ms,
-            }
-            results.append(entry)
+        def _print_entry(entry: dict) -> None:
             print(json.dumps(entry))
-            if run.status != "PASS":
-                overall_ok = False
-                if not args.continue_on_fail:
-                    break
 
-        summary = {
-            "suite": data.get("suite"),
-            "path": args.path,
-            "environment": getattr(env, "name", None),
-            "total": len(selected),
-            "executed": len(results),
-            "passed": sum(1 for r in results if r["status"] == "PASS"),
-            "failed": sum(1 for r in results if r["status"] != "PASS"),
-            "status": "PASS" if overall_ok and len(results) == len(selected) else "FAIL",
-            "results": results,
-        }
+        summary = run_suite_tests(
+            selected,
+            env,
+            workers=args.workers,
+            headed=args.headed,
+            continue_on_fail=args.continue_on_fail,
+            triggered_by=args.user,
+            trigger="cli-file",
+            on_result=_print_entry,
+        )
+        summary["suite"] = data.get("suite")
+        summary["path"] = args.path
+        summary["environment"] = getattr(env, "name", None)
+
+        try:
+            from flowtest.allure_report import write_suite_allure
+            from flowtest.storage import get_run
+
+            runs = [get_run(r["run_id"]) for r in summary["results"] if r.get("run_id")]
+            runs = [r for r in runs if r]
+            if runs:
+                report_dir = write_suite_allure(
+                    summary,
+                    runs,
+                    out_dir=args.allure_dir,
+                    label=f"suite_{data.get('suite') or 'file'}",
+                )
+                summary["allure_dir"] = str(report_dir)
+                summary["report_html"] = str(report_dir / "report.html")
+        except Exception as exc:
+            summary["allure_error"] = str(exc)[:300]
+
         print(json.dumps(summary, indent=2))
         return 0 if summary["status"] == "PASS" else 1
 

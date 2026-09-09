@@ -27,6 +27,20 @@ STEP_LIBRARY: list[dict[str, Any]] = [
         "fields": [
             {"key": "selector", "label": "CSS selector", "kind": "text", "default": ""},
             {"key": "text", "label": "Or button/link text", "kind": "text", "default": ""},
+            {"key": "testid", "label": "data-testid / data-qa", "kind": "text", "default": ""},
+            {
+                "key": "role",
+                "label": "ARIA role (optional)",
+                "kind": "select",
+                "options": ["", "button", "link", "textbox", "checkbox", "radio", "menuitem", "option", "tab"],
+                "default": "",
+            },
+            {
+                "key": "alternates",
+                "label": "Alternate selectors (one per line)",
+                "kind": "textarea",
+                "default": "",
+            },
             {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 30000},
         ],
     },
@@ -67,6 +81,20 @@ STEP_LIBRARY: list[dict[str, Any]] = [
         "fields": [
             {"key": "selector", "label": "CSS selector", "kind": "text", "default": ""},
             {"key": "value", "label": "Value", "kind": "text", "default": ""},
+            {"key": "testid", "label": "data-testid / data-qa", "kind": "text", "default": ""},
+            {
+                "key": "role",
+                "label": "ARIA role (optional)",
+                "kind": "select",
+                "options": ["", "textbox", "searchbox", "combobox"],
+                "default": "",
+            },
+            {
+                "key": "alternates",
+                "label": "Alternate selectors (one per line)",
+                "kind": "textarea",
+                "default": "",
+            },
             {"key": "clear", "label": "Clear first", "kind": "bool", "default": True},
             {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 30000},
         ],
@@ -111,6 +139,20 @@ STEP_LIBRARY: list[dict[str, Any]] = [
         "description": "Wait until an element is visible (or attached).",
         "fields": [
             {"key": "selector", "label": "CSS selector", "kind": "text", "default": ""},
+            {"key": "testid", "label": "data-testid / data-qa", "kind": "text", "default": ""},
+            {
+                "key": "role",
+                "label": "ARIA role (optional)",
+                "kind": "select",
+                "options": ["", "button", "link", "textbox", "heading", "img", "listitem"],
+                "default": "",
+            },
+            {
+                "key": "alternates",
+                "label": "Alternate selectors (one per line)",
+                "kind": "textarea",
+                "default": "",
+            },
             {"key": "timeout_ms", "label": "Timeout (ms)", "kind": "number", "default": 30000},
             {
                 "key": "state",
@@ -318,6 +360,20 @@ STEP_LIBRARY: list[dict[str, Any]] = [
         "description": "Element matching selector is visible.",
         "fields": [
             {"key": "selector", "label": "CSS selector", "kind": "text", "default": ""},
+            {"key": "testid", "label": "data-testid / data-qa", "kind": "text", "default": ""},
+            {
+                "key": "role",
+                "label": "ARIA role (optional)",
+                "kind": "select",
+                "options": ["", "button", "link", "textbox", "heading", "img", "listitem"],
+                "default": "",
+            },
+            {
+                "key": "alternates",
+                "label": "Alternate selectors (one per line)",
+                "kind": "textarea",
+                "default": "",
+            },
         ],
     },
     {

@@ -1078,6 +1078,41 @@ def page_runs():
             if s.screenshot:
                 st.image(s.screenshot, caption=s.step_name, width=520)
 
+        # Allure-style HTML report + zip download
+        from flowtest.allure_report import find_run_report_dir, write_run_allure, zip_report
+
+        report_dir = find_run_report_dir(run.id)
+        if report_dir is None:
+            try:
+                report_dir = write_run_allure(run)
+            except Exception as exc:
+                st.caption(f"Report unavailable: {exc}")
+                report_dir = None
+        if report_dir is not None:
+            html_path = report_dir / "report.html"
+            st.markdown("#### Allure-style report")
+            st.caption(f"`{report_dir}`")
+            dl1, dl2 = st.columns(2)
+            if html_path.is_file():
+                dl1.download_button(
+                    "Download HTML report",
+                    data=html_path.read_bytes(),
+                    file_name=f"flowtest_report_{run.id}.html",
+                    mime="text/html",
+                    key=f"dl_html_{run.id}",
+                )
+            try:
+                zpath = zip_report(report_dir)
+                dl2.download_button(
+                    "Download allure-results zip",
+                    data=zpath.read_bytes(),
+                    file_name=zpath.name,
+                    mime="application/zip",
+                    key=f"dl_zip_{run.id}",
+                )
+            except Exception as exc:
+                dl2.caption(f"Zip failed: {exc}")
+
 
 def page_ci_pipelines():
     page_header(
@@ -1156,6 +1191,57 @@ def page_ci_pipelines():
         use_container_width=True,
         hide_index=True,
     )
+
+    st.markdown("#### Run suite now")
+    rw1, rw2, rw3, rw4 = st.columns(4)
+    suite_workers = int(rw1.number_input("Workers", min_value=1, max_value=8, value=1, step=1, key="suite_workers"))
+    suite_continue = rw2.checkbox("Continue on fail", value=True, key="suite_continue")
+    suite_headed = rw3.checkbox("Headed browser", value=False, key="suite_headed")
+    if rw4.button("Run suite", type="primary", key="btn_run_suite_now"):
+        from flowtest.suite_runner import run_suite_tests
+
+        with st.spinner(f"Running {len(selected['tests'])} test(s) with {suite_workers} worker(s)…"):
+            summary = run_suite_tests(
+                selected["tests"],
+                env,
+                workers=suite_workers,
+                headed=suite_headed,
+                continue_on_fail=suite_continue,
+                triggered_by=ci_user or "ui",
+                trigger="ui-suite",
+            )
+        st.session_state.last_suite_summary = summary
+        add_audit(
+            st.session_state.user.username,
+            "run_suite",
+            "suite",
+            selected["project_id"],
+            f"{selected['suite']} → {summary.get('status')} ({summary.get('passed')}/{summary.get('total')})",
+        )
+        st.rerun()
+
+    if st.session_state.get("last_suite_summary"):
+        sm = st.session_state.last_suite_summary
+        st.success(
+            f"Suite **{sm.get('status')}** · {sm.get('passed', 0)}/{sm.get('total', 0)} passed · "
+            f"{sm.get('failed', 0)} failed · workers={sm.get('workers', 1)}"
+        )
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Test": r.get("test_name"),
+                        "Status": r.get("status"),
+                        "Duration ms": r.get("duration_ms"),
+                        "Run ID": r.get("run_id"),
+                        "Error": (r.get("error") or "")[:120],
+                    }
+                    for r in sm.get("results") or []
+                ]
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
 
     from flowtest.ci_scripts import (
         generate_all_ci_scripts,

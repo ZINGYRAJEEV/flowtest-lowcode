@@ -21,33 +21,10 @@ _RECORDER_JS = r"""
   window.__flowtest_done = false;
   window.__flowtest_lastSelection = { text: '', selector: 'body' };
 
-  const cssPath = (el) => {
-    if (!el || el.nodeType !== 1) return '';
-    // Prefer stable ForgeRock / Horizon attributes over volatile floatingLabel ids
-    const name = el.getAttribute && el.getAttribute('name');
-    if (name && /^callback_\d+$/i.test(name)) {
-      return `[name="${name}"]`;
-    }
-    const vv = el.getAttribute && el.getAttribute('data-vv-as');
-    if (vv) {
-      const esc = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(vv) : vv.replace(/"/g, '\\"');
-      return `[data-vv-as="${esc}"]`;
-    }
-    const testId = el.getAttribute && el.getAttribute('data-testid');
-    if (testId && testId !== 'input-') {
-      const esc = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(testId) : testId;
-      return `[data-testid="${esc}"]`;
-    }
-    if (el.id) {
-      const id = el.id;
-      // Skip volatile auto-generated floating label ids — fall through to name/path
-      if (!/^floatingLabelInput\d+$/i.test(id)) {
-        if (typeof CSS !== 'undefined' && CSS.escape) return `#${CSS.escape(id)}`;
-        return `#${id.replace(/([^a-zA-Z0-9_-])/g, '\\$1')}`;
-      }
-      if (name) return `[name="${name}"]`;
-    }
-    if (name) return `[name="${name}"]`;
+  const escAttr = (v) =>
+    (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(v) : String(v).replace(/"/g, '\\"');
+
+  const cssPathFallback = (el) => {
     const parts = [];
     let node = el;
     while (node && node.nodeType === 1 && parts.length < 6) {
@@ -68,6 +45,33 @@ _RECORDER_JS = r"""
     }
     return parts.join(' > ');
   };
+
+  // Ranked: testid → id → name → aria-label → css path (primary + alternates)
+  const rankedSelectors = (el) => {
+    const ranked = [];
+    const add = (s) => { if (s && ranked.indexOf(s) < 0) ranked.push(s); };
+    if (!el || el.nodeType !== 1) return { selector: '', alternates: [] };
+    const name = el.getAttribute && el.getAttribute('name');
+    const testId = el.getAttribute && el.getAttribute('data-testid');
+    const dataTest = el.getAttribute && el.getAttribute('data-test');
+    const dataQa = el.getAttribute && el.getAttribute('data-qa');
+    const vv = el.getAttribute && el.getAttribute('data-vv-as');
+    const aria = el.getAttribute && el.getAttribute('aria-label');
+    if (testId && testId !== 'input-') add(`[data-testid="${escAttr(testId)}"]`);
+    if (dataTest) add(`[data-test="${escAttr(dataTest)}"]`);
+    if (dataQa) add(`[data-qa="${escAttr(dataQa)}"]`);
+    if (name && /^callback_\d+$/i.test(name)) add(`[name="${name}"]`);
+    if (vv) add(`[data-vv-as="${escAttr(vv)}"]`);
+    if (el.id && !/^floatingLabelInput\d+$/i.test(el.id)) {
+      add((typeof CSS !== 'undefined' && CSS.escape) ? `#${CSS.escape(el.id)}` : `#${el.id.replace(/([^a-zA-Z0-9_-])/g, '\\$1')}`);
+    }
+    if (name) add(`[name="${name}"]`);
+    if (aria) add(`[aria-label="${escAttr(aria)}"]`);
+    add(cssPathFallback(el));
+    return { selector: ranked[0] || '', alternates: ranked.slice(1) };
+  };
+
+  const cssPath = (el) => rankedSelectors(el).selector;
 
   const labelOf = (el) => {
     return (el.getAttribute('aria-label')
@@ -294,38 +298,46 @@ _RECORDER_JS = r"""
     );
 
     if (isOptionLike && visibleText && visibleText.length >= 1) {
+      const ranked = rankedSelectors(el);
       emit({
         type: 'click_by_text',
         text: visibleText,
         exact: role === 'option' || role === 'menuitem',
         role: role || (optionish ? 'option' : ''),
-        selector: cssPath(el),
+        selector: ranked.selector,
+        alternates: ranked.alternates,
         label: visibleText,
         ts: Date.now(),
       });
       return;
     }
 
-    emit({
-      type: 'click',
-      selector: cssPath(el),
-      text: visibleText.slice(0, 80),
-      tag: (el.tagName || '').toLowerCase(),
-      inputType: (el.getAttribute && el.getAttribute('type')) || '',
-      label: labelOf(el),
-      href: el.getAttribute && el.getAttribute('href') || '',
-      ts: Date.now(),
-    });
+    {
+      const ranked = rankedSelectors(el);
+      emit({
+        type: 'click',
+        selector: ranked.selector,
+        alternates: ranked.alternates,
+        text: visibleText.slice(0, 80),
+        tag: (el.tagName || '').toLowerCase(),
+        inputType: (el.getAttribute && el.getAttribute('type')) || '',
+        label: labelOf(el),
+        href: el.getAttribute && el.getAttribute('href') || '',
+        ts: Date.now(),
+      });
+    }
   }, true);
 
   const onFieldCommit = (el) => {
     if (!el || !el.tagName) return;
     const tag = el.tagName.toLowerCase();
+    const ranked = rankedSelectors(el);
     if (tag === 'select') {
       const optText = el.options && el.selectedIndex >= 0 ? el.options[el.selectedIndex].text : '';
       emit({
         type: 'select_by_text',
-        selector: cssPath(el),
+        selector: ranked.selector,
+        alternates: ranked.alternates,
         text: (optText || '').trim(),
         label: (optText || '').trim(),
         exact: false,
@@ -339,7 +351,8 @@ _RECORDER_JS = r"""
     if (['button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'image'].includes(inputType)) return;
     emit({
       type: 'fill',
-      selector: cssPath(el),
+      selector: ranked.selector,
+      alternates: ranked.alternates,
       value: el.value || '',
       inputType,
       name: labelOf(el),
@@ -483,6 +496,9 @@ def events_to_steps(events: list[dict[str, Any]], replace_base_url: str | None =
             else:
                 _auto_wait(selector, str(label), state="visible")
                 cfg: dict[str, Any] = {"selector": selector, "text": "", "timeout_ms": 30000}
+                alts = [str(a).strip() for a in (ev.get("alternates") or []) if str(a).strip()]
+                if alts:
+                    cfg["alternates"] = alts
                 steps.append(
                     TestStep(
                         id=new_id("stp_"),
@@ -523,18 +539,22 @@ def events_to_steps(events: list[dict[str, Any]], replace_base_url: str | None =
                 continue
             name = ev.get("name") or selector
             _auto_wait(selector, str(name), state="attached")
+            fill_cfg: dict[str, Any] = {
+                "selector": selector,
+                "value": value,
+                "clear": True,
+                "timeout_ms": 30000,
+                "name": name if str(name).startswith("callback_") else "",
+            }
+            alts = [str(a).strip() for a in (ev.get("alternates") or []) if str(a).strip()]
+            if alts:
+                fill_cfg["alternates"] = alts
             steps.append(
                 TestStep(
                     id=new_id("stp_"),
                     type="ui.fill",
                     name=f"Fill {str(name)[:40]}",
-                    config={
-                        "selector": selector,
-                        "value": value,
-                        "clear": True,
-                        "timeout_ms": 30000,
-                        "name": name if str(name).startswith("callback_") else "",
-                    },
+                    config=fill_cfg,
                     notes="Recorded",
                 )
             )

@@ -221,6 +221,12 @@ def execute_test_case(
     run.finished_at = utc_now()
     run.duration_ms = int((time.perf_counter() - t0) * 1000)
     save_run(run)
+    try:
+        from flowtest.allure_report import write_run_allure
+
+        write_run_allure(run)
+    except Exception:
+        pass
     return run
 
 

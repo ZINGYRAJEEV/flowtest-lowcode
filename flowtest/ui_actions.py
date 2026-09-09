@@ -32,8 +32,19 @@ def settle_page(page, ms: int = 250) -> None:
     page.wait_for_timeout(ms)
 
 
+def _parse_alternates(cfg: dict[str, Any]) -> list[str]:
+    raw = cfg.get("alternates")
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [str(x).strip() for x in raw if str(x).strip()]
+    # Builder textarea: one selector per line (comma-separated also accepted)
+    text = str(raw).replace(",", "\n")
+    return [ln.strip() for ln in text.splitlines() if ln.strip()]
+
+
 def selector_candidates(selector: str, cfg: dict[str, Any] | None = None, step_name: str = "") -> list[str]:
-    """Prefer stable name / data-vv-as over volatile floatingLabel ids."""
+    """Prefer stable testid / name / data-vv-as over volatile floatingLabel ids."""
     cfg = cfg or {}
     seen: list[str] = []
     out: list[str] = []
@@ -43,6 +54,13 @@ def selector_candidates(selector: str, cfg: dict[str, Any] | None = None, step_n
         if s and s not in seen:
             seen.append(s)
             out.append(s)
+
+    # Explicit testid / data-qa first (most stable for modern apps)
+    testid = str(cfg.get("testid") or "").strip()
+    if testid:
+        add(f'[data-testid="{testid}"]')
+        add(f'[data-test="{testid}"]')
+        add(f'[data-qa="{testid}"]')
 
     # Callback names from step / config win — avoid wrong #hzVerificationMethod matching callback_3
     callbacks: list[str] = []
@@ -58,8 +76,15 @@ def selector_candidates(selector: str, cfg: dict[str, Any] | None = None, step_n
         add(f'select[name="{cb}"]')
 
     add(selector)
-    for alt in cfg.get("alternates") or []:
-        add(str(alt))
+    for alt in _parse_alternates(cfg):
+        add(alt)
+
+    # If primary selector looks like a bare testid token, expand attributes
+    sel = (selector or "").strip()
+    if sel and not any(ch in sel for ch in "#.[] =>"):
+        add(f'[data-testid="{sel}"]')
+        add(f'[data-test="{sel}"]')
+        add(f'[data-qa="{sel}"]')
 
     name = str(cfg.get("name") or "").strip()
     if name:
@@ -67,6 +92,12 @@ def selector_candidates(selector: str, cfg: dict[str, Any] | None = None, step_n
         add(f'input[name="{name}"]')
         add(f'select[name="{name}"]')
         add(f'textarea[name="{name}"]')
+        add(f'[aria-label="{name}"]')
+
+    aria = str(cfg.get("aria_label") or "").strip()
+    if aria:
+        add(f'[aria-label="{aria}"]')
+        add(f'[aria-label*="{aria}"]')
 
     # Only remap verification aliases when we are not targeting a different callback_*
     blob = " ".join([selector, step_name, name, str(cfg.get("label") or "")])
@@ -81,12 +112,44 @@ def selector_candidates(selector: str, cfg: dict[str, Any] | None = None, step_n
     return out
 
 
-def first_attached_locator(page, candidates: list[str], timeout: int):
-    if not candidates:
-        raise RuntimeError("Selector is empty")
+def _role_locator(page, cfg: dict[str, Any]):
+    """Build a Playwright get_by_role locator when cfg.role is set. Returns (locator, label) or None."""
+    role = str(cfg.get("role") or "").strip()
+    if not role:
+        return None
+    name = str(cfg.get("name") or cfg.get("text") or cfg.get("aria_label") or "").strip() or None
+    exact = bool(cfg.get("exact", False))
+    try:
+        kwargs: dict[str, Any] = {}
+        if name:
+            kwargs["name"] = name
+            kwargs["exact"] = exact
+        loc = page.get_by_role(role, **kwargs).first
+        return loc, f"role={role}" + (f' name={name!r}' if name else "")
+    except Exception:
+        return None
+
+
+def first_attached_locator(page, candidates: list[str], timeout: int, cfg: dict[str, Any] | None = None):
+    cfg = cfg or {}
     deadline = time.time() + (timeout / 1000.0)
     last_err: Exception | None = None
+
+    # Prefer accessible role locator when provided
     while time.time() < deadline:
+        role_hit = _role_locator(page, cfg)
+        if role_hit is not None:
+            loc, label = role_hit
+            try:
+                if loc.count() >= 1:
+                    loc.wait_for(state="attached", timeout=800)
+                    return loc, label
+            except Exception as exc:
+                last_err = exc
+
+        if not candidates and not cfg.get("role"):
+            break
+
         for sel in candidates:
             try:
                 loc = page.locator(sel).first
@@ -99,7 +162,12 @@ def first_attached_locator(page, candidates: list[str], timeout: int):
                 last_err = exc
                 continue
         page.wait_for_timeout(250)
+
+    if not candidates and not str(cfg.get("role") or "").strip():
+        raise RuntimeError("Selector is empty")
     msg = f"No matching element for selectors: {candidates}"
+    if cfg.get("role"):
+        msg += f" | role={cfg.get('role')!r}"
     if last_err:
         msg += f" | last: {last_err}"
     raise RuntimeError(msg[:800])
@@ -113,10 +181,11 @@ def prepare_locator(
     cfg: dict[str, Any] | None = None,
     step_name: str = "",
 ):
+    cfg = cfg or {}
     candidates = selector_candidates(selector, cfg, step_name)
-    if not any(candidates):
+    if not any(candidates) and not str(cfg.get("role") or "").strip():
         raise RuntimeError("Selector is empty")
-    loc, matched = first_attached_locator(page, candidates, timeout)
+    loc, matched = first_attached_locator(page, candidates, timeout, cfg=cfg)
     try:
         loc.scroll_into_view_if_needed(timeout=min(5000, timeout))
     except Exception:
@@ -681,7 +750,7 @@ def smart_wait_for(
     'visible' soft-falls back to attached for permanently hidden polyfill inputs.
     """
     candidates = selector_candidates(selector, cfg, step_name)
-    loc, matched = first_attached_locator(page, candidates, timeout)
+    loc, matched = first_attached_locator(page, candidates, timeout, cfg=cfg)
     want = (state or "attached").strip() or "attached"
     if want == "visible":
         try:

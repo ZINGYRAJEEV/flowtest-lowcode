@@ -131,11 +131,14 @@
           });
         } else {
           autoWait(selector, label, "visible");
+          const cfg = { selector, text: "", timeout_ms: 30000 };
+          const alts = (ev.alternates || []).map((a) => String(a).trim()).filter(Boolean);
+          if (alts.length) cfg.alternates = alts;
           steps.push({
             id: newId("stp_"),
             type: "ui.click",
             name: `Click ${String(label).slice(0, 50)}`,
-            config: { selector, text: "", timeout_ms: 30000 },
+            config: cfg,
             enabled: true,
             notes: "Recorded (Chrome extension)",
           });
@@ -165,17 +168,20 @@
         if (String(value).trim() === "") continue;
         const name = ev.name || selector;
         autoWait(selector, name, "attached");
+        const fillCfg = {
+          selector,
+          value,
+          clear: true,
+          timeout_ms: 30000,
+          name: String(name).startsWith("callback_") ? name : "",
+        };
+        const alts = (ev.alternates || []).map((a) => String(a).trim()).filter(Boolean);
+        if (alts.length) fillCfg.alternates = alts;
         steps.push({
           id: newId("stp_"),
           type: "ui.fill",
           name: `Fill ${String(name).slice(0, 40)}`,
-          config: {
-            selector,
-            value,
-            clear: true,
-            timeout_ms: 30000,
-            name: String(name).startsWith("callback_") ? name : "",
-          },
+          config: fillCfg,
           enabled: true,
           notes: "Recorded (Chrome extension)",
         });

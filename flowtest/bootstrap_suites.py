@@ -44,12 +44,15 @@ TEMU_LANDING = (
     "&_x_vst_scene=adg&scene=adg_alliance_exp"
     "&_p_adg_gwid=2979d96e78a54cd0a31862b2dce8f0a7"
 )
+AI_VERIFY_SUITE = ROOT / "tests" / "flowtest" / "ai-verify" / "suite.json"
+EXAMPLE_BASE = "https://example.org"
 
 
 def ensure_bundled_projects() -> None:
     """Idempotent — safe to call on every app start."""
     _ensure_tui()
     _ensure_temu()
+    _ensure_ai_verify()
 
 
 def _ensure_tui() -> None:
@@ -140,6 +143,54 @@ def _ensure_temu() -> None:
 
     existing_by_name = {t.name: t for t in list_tests(project.id)}
     data = load_suite_file(TEMU_SUITE)
+    cases = suite_file_to_test_cases(data, project_id=project.id)
+    for case in cases:
+        prior = existing_by_name.get(case.name)
+        if prior:
+            prior.steps = case.steps
+            prior.description = case.description
+            prior.tags = case.tags
+            prior.suite = case.suite
+            save_test(prior, bump_version=True)
+            continue
+        case.project_id = project.id
+        case.id = new_id("tst_")
+        for s in case.steps:
+            if not s.id:
+                s.id = new_id("stp_")
+        save_test(case, bump_version=False)
+
+
+def _ensure_ai_verify() -> None:
+    if not AI_VERIFY_SUITE.is_file():
+        return
+
+    project = next((p for p in list_projects() if p.name.lower() == "flowtest"), None)
+    if not project:
+        project = Project(
+            id=new_id("prj_"),
+            name="FlowTest",
+            description="Built-in AI verification golden paths and Failure Truthfulness demos.",
+            tags=["ai-verify", "golden", "meta"],
+        )
+        save_project(project)
+
+    env = next((e for e in list_environments() if e.name == "Example Org"), None)
+    if not env:
+        env = Environment(
+            id=new_id("env_"),
+            name="Example Org",
+            base_url=EXAMPLE_BASE,
+            variables={"BRAND": "Example"},
+        )
+        save_environment(env)
+    else:
+        env.base_url = EXAMPLE_BASE
+        env.variables = {**(env.variables or {}), "BRAND": "Example"}
+        save_environment(env)
+
+    existing_by_name = {t.name: t for t in list_tests(project.id)}
+    data = load_suite_file(AI_VERIFY_SUITE)
     cases = suite_file_to_test_cases(data, project_id=project.id)
     for case in cases:
         prior = existing_by_name.get(case.name)

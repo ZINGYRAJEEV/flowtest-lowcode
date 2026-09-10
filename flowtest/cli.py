@@ -117,6 +117,38 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional override directory for Allure/HTML report output",
     )
 
+    p_gate = sub.add_parser(
+        "verify-gate",
+        help="AI-code verification gate: run golden suite + optional soft-fail scan",
+    )
+    p_gate.add_argument(
+        "--path",
+        default=None,
+        help="Path to suite.json (default: tests/flowtest/ai-verify/suite.json)",
+    )
+    p_gate.add_argument("--env-name", default=None)
+    p_gate.add_argument("--env-id", default=None)
+    p_gate.add_argument("--user", default="ai-verify")
+    p_gate.add_argument("--headed", action="store_true")
+    p_gate.add_argument("--workers", type=int, default=1)
+    p_gate.add_argument("--continue-on-fail", action="store_true", default=True)
+    p_gate.add_argument(
+        "--diff-file",
+        default=None,
+        help="Optional path to a git diff / patch to scan for polite failures",
+    )
+    p_gate.add_argument(
+        "--scan",
+        action="append",
+        default=[],
+        help="File path to scan for soft-fail patterns (repeatable)",
+    )
+    p_gate.add_argument(
+        "--fail-on-warn",
+        action="store_true",
+        help="Exit non-zero on PASS_WITH_WARNINGS as well as FAIL",
+    )
+
     p_envs = sub.add_parser("list-envs", help="List environments")
 
     args = parser.parse_args(argv)
@@ -298,6 +330,60 @@ def main(argv: list[str] | None = None) -> int:
 
         print(json.dumps(summary, indent=2))
         return 0 if summary["status"] == "PASS" else 1
+
+    if args.cmd == "verify-gate":
+        from pathlib import Path
+
+        from flowtest.ai_verify import DEFAULT_GOLDEN_SUITE, run_verify_gate, write_gate_artifact
+        from flowtest.suite_io import load_suite_file, suite_file_to_test_cases
+
+        suite_path = Path(args.path) if args.path else DEFAULT_GOLDEN_SUITE
+        if not suite_path.is_file():
+            print(f"Suite not found: {suite_path}", file=sys.stderr)
+            return 2
+        data = load_suite_file(suite_path)
+        selected = suite_file_to_test_cases(data)
+        if not selected:
+            print(f"No tests in suite: {suite_path}", file=sys.stderr)
+            return 2
+
+        env = _resolve_env(args)
+        if env is None and data.get("environment_hint"):
+            env = next(
+                (e for e in list_environments() if e.name == data["environment_hint"]),
+                None,
+            )
+
+        diff_text = ""
+        if args.diff_file:
+            diff_path = Path(args.diff_file)
+            if not diff_path.is_file():
+                print(f"Diff file not found: {diff_path}", file=sys.stderr)
+                return 2
+            diff_text = diff_path.read_text(encoding="utf-8", errors="replace")
+
+        verdict = run_verify_gate(
+            selected,
+            env,
+            workers=args.workers,
+            headed=args.headed,
+            continue_on_fail=args.continue_on_fail,
+            diff_text=diff_text,
+            scan_paths=list(args.scan or []),
+            triggered_by=args.user,
+            trigger="cli-verify-gate",
+        )
+        verdict["suite_name"] = data.get("suite")
+        verdict["path"] = str(suite_path)
+        artifact = write_gate_artifact(verdict)
+        verdict["artifact"] = str(artifact)
+        print(json.dumps(verdict, indent=2))
+        gate = verdict.get("gate")
+        if gate == "FAIL":
+            return 1
+        if gate == "PASS_WITH_WARNINGS" and args.fail_on_warn:
+            return 1
+        return 0
 
     return 1
 

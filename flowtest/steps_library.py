@@ -409,6 +409,139 @@ STEP_LIBRARY: list[dict[str, Any]] = [
             {"key": "equals", "label": "Expected value", "kind": "text", "default": ""},
         ],
     },
+    # AI / Verify — independent oracles against polite / soft failures
+    {
+        "type": "verify.invariant",
+        "category": "verify",
+        "label": "Verify page invariant (JS)",
+        "description": "Evaluate a JS expression that must be truthy (catches silent wrong UI state).",
+        "fields": [
+            {
+                "key": "expression",
+                "label": "JS expression (truthy = pass)",
+                "kind": "textarea",
+                "default": "document.body && document.body.innerText.length > 0",
+            },
+            {
+                "key": "severity",
+                "label": "Severity",
+                "kind": "select",
+                "options": ["hard", "soft"],
+                "default": "hard",
+            },
+            {"key": "message", "label": "Failure message", "kind": "text", "default": "Invariant failed"},
+        ],
+    },
+    {
+        "type": "verify.page_truth",
+        "category": "verify",
+        "label": "Verify page Failure Truthfulness",
+        "description": "Fail if the page looks 'OK' but shows error banners / empty shell / soft error text.",
+        "fields": [
+            {
+                "key": "error_texts",
+                "label": "Soft-error phrases (one per line)",
+                "kind": "textarea",
+                "default": "something went wrong\nunexpected error\nundefined\nnull is not\nfailed to load",
+            },
+            {
+                "key": "require_min_text_len",
+                "label": "Min body text length",
+                "kind": "number",
+                "default": 20,
+            },
+            {
+                "key": "severity",
+                "label": "Severity",
+                "kind": "select",
+                "options": ["hard", "soft"],
+                "default": "hard",
+            },
+        ],
+    },
+    {
+        "type": "verify.not_empty",
+        "category": "verify",
+        "label": "Verify value not empty",
+        "description": "Variable/result must be non-empty — blocks empty-success polite failures.",
+        "fields": [
+            {"key": "variable", "label": "Variable name", "kind": "text", "default": "last_response"},
+            {
+                "key": "json_path",
+                "label": "Optional JSON path under variable",
+                "kind": "text",
+                "default": "",
+            },
+            {
+                "key": "severity",
+                "label": "Severity",
+                "kind": "select",
+                "options": ["hard", "soft"],
+                "default": "hard",
+            },
+        ],
+    },
+    {
+        "type": "verify.api_truthful",
+        "category": "verify",
+        "label": "Verify API response truthful",
+        "description": "If status is success-class, body must not be empty and optional field must exist.",
+        "fields": [
+            {"key": "save_as", "label": "Response variable", "kind": "text", "default": "last_response"},
+            {
+                "key": "success_statuses",
+                "label": "Success statuses (comma)",
+                "kind": "text",
+                "default": "200,201,204",
+            },
+            {
+                "key": "require_field",
+                "label": "Required JSON field (optional)",
+                "kind": "text",
+                "default": "",
+            },
+            {
+                "key": "forbid_field_equals",
+                "label": "Forbid field=value (e.g. success=false)",
+                "kind": "text",
+                "default": "",
+            },
+            {
+                "key": "severity",
+                "label": "Severity",
+                "kind": "select",
+                "options": ["hard", "soft"],
+                "default": "hard",
+            },
+        ],
+    },
+    {
+        "type": "verify.intent_table",
+        "category": "verify",
+        "label": "Verify intent table (JS)",
+        "description": "Run rows of {input, expect} via a JS function — catches intent inversion.",
+        "fields": [
+            {
+                "key": "function_body",
+                "label": "JS function body (args: input) → value",
+                "kind": "textarea",
+                "default": "return String(input).length;",
+            },
+            {
+                "key": "cases_json",
+                "label": "Cases JSON array [{input, expect}]",
+                "kind": "textarea",
+                "default": '[{"input":"ab","expect":2},{"input":"","expect":0}]',
+            },
+            {
+                "key": "severity",
+                "label": "Severity",
+                "kind": "select",
+                "options": ["hard", "soft"],
+                "default": "hard",
+            },
+        ],
+    },
     # Data / ETL (basic)
     {
         "type": "data.sql_query",

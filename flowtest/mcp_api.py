@@ -418,3 +418,104 @@ def tool_desktop_screenshot(label: str = "desktop") -> dict[str, Any]:
         return {"ok": True, "path": path}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
+
+
+def tool_ai_verify_checklist() -> dict[str, Any]:
+    """Human + agent checklist for verifying AI-generated code."""
+    from flowtest.ai_verify import AGENT_VERIFY_INSTRUCTIONS, verification_checklist
+
+    return {
+        "checklist": verification_checklist(),
+        "agent_instructions": AGENT_VERIFY_INSTRUCTIONS,
+    }
+
+
+def tool_scan_ai_diff(diff_text: str = "", paths: list[str] | None = None) -> dict[str, Any]:
+    """Scan a diff or file paths for polite-failure / soft-fail patterns."""
+    from flowtest.ai_verify import scan_paths_for_soft_fails, scan_text_for_soft_fails
+
+    findings = []
+    if diff_text:
+        findings.extend(scan_text_for_soft_fails(diff_text, source="diff"))
+    if paths:
+        findings.extend(scan_paths_for_soft_fails(list(paths)))
+    return {
+        "finding_count": len(findings),
+        "findings": findings[:100],
+        "gate_hint": "PASS_WITH_WARNINGS" if findings else "PASS",
+    }
+
+
+def tool_verify_suite(
+    path: str = "",
+    suite: str = "",
+    project_name: str = "",
+    env_name: str | None = None,
+    env_id: str | None = None,
+    workers: int = 1,
+    headed: bool = False,
+    continue_on_fail: bool = True,
+    diff_text: str = "",
+    scan_paths: list[str] | None = None,
+) -> dict[str, Any]:
+    """
+    Run a golden-path suite as an AI-code verification gate.
+    Prefer path to suite.json; otherwise suite + project_name from DB.
+    """
+    from flowtest.ai_verify import DEFAULT_GOLDEN_SUITE, run_verify_gate, write_gate_artifact
+    from flowtest.suite_io import load_suite_file, suite_file_to_test_cases
+
+    _ensure_db()
+    tests: list[TestCase] = []
+    suite_label = suite or "ai-verify"
+
+    if path:
+        data = load_suite_file(path)
+        tests = suite_file_to_test_cases(data)
+        suite_label = str(data.get("suite") or suite_label)
+    elif suite and project_name:
+        projects = {p.name: p for p in list_projects()}
+        proj = projects.get(project_name)
+        if not proj:
+            return {"error": f"Project not found: {project_name}"}
+        tests = [t for t in list_tests(proj.id) if t.suite == suite]
+        suite_label = suite
+    else:
+        # Default bundled golden suite
+        if DEFAULT_GOLDEN_SUITE.is_file():
+            data = load_suite_file(DEFAULT_GOLDEN_SUITE)
+            tests = suite_file_to_test_cases(data)
+            suite_label = str(data.get("suite") or "ai-verify")
+        else:
+            return {
+                "error": "Provide path= to suite.json, or suite+project_name, "
+                "or add tests/flowtest/ai-verify/suite.json",
+            }
+
+    if not tests:
+        return {"error": "No tests found for verification suite"}
+
+    env = None
+    if env_id:
+        env = get_environment(env_id)
+    elif env_name:
+        env = next((e for e in list_environments() if e.name == env_name), None)
+        if not env:
+            return {"error": f"Environment not found: {env_name}"}
+
+    verdict = run_verify_gate(
+        tests,
+        env,
+        workers=max(1, int(workers or 1)),
+        headed=headed,
+        continue_on_fail=continue_on_fail,
+        diff_text=diff_text or "",
+        scan_paths=scan_paths,
+        triggered_by="mcp",
+        trigger="mcp-verify",
+    )
+    verdict["suite_label"] = suite_label
+    artifact = write_gate_artifact(verdict)
+    verdict["artifact"] = str(artifact)
+    add_audit("mcp", "ai_verify_gate", "suite", suite_label, verdict.get("gate", ""))
+    return verdict

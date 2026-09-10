@@ -53,6 +53,8 @@ def _allure_status(status: str) -> str:
         return "passed"
     if s == "SKIP":
         return "skipped"
+    if s == "WARN":
+        return "broken"
     if s in ("FAIL", "ERROR"):
         return "failed"
     return "broken"
@@ -159,7 +161,7 @@ def _write_html_report(
         status_cls = "pass" if run.status == "PASS" else "fail"
         step_html: list[str] = []
         for sr in run.step_results or []:
-            sc = "pass" if sr.status == "PASS" else ("skip" if sr.status == "SKIP" else "fail")
+            sc = "pass" if sr.status == "PASS" else ("skip" if sr.status == "SKIP" else ("warn" if sr.status == "WARN" else "fail"))
             img = ""
             if sr.screenshot:
                 # Prefer attachment copy under out_dir/attachments
@@ -214,10 +216,12 @@ main {{ padding:0 32px 48px; display:grid; gap:16px; }}
 .step.fail {{ border-color:#5c2b32; }}
 .step.pass {{ border-color:#1f4d3a; }}
 .step.skip {{ border-color:#4d4328; }}
+.step.warn {{ border-color:#8a6d1b; }}
 .badge {{ display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; padding:2px 8px; border-radius:999px; background:#243041; }}
 .pass .badge, .step.pass .badge {{ background:#1f4d3a; color:var(--pass); }}
 .fail .badge, .step.fail .badge {{ background:#5c2b32; color:var(--fail); }}
 .skip .badge, .step.skip .badge {{ background:#4d4328; color:var(--skip); }}
+.warn .badge, .step.warn .badge {{ background:#5c4a1b; color:var(--skip); }}
 .muted {{ color:var(--muted); font-weight:500; font-size:12px; }}
 .detail {{ color:var(--muted); font-size:13px; margin-top:4px; white-space:pre-wrap; }}
 .shot img {{ max-width:min(720px,100%); margin-top:8px; border-radius:8px; border:1px solid #2a3544; }}

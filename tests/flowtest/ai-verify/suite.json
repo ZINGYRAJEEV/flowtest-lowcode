@@ -1,0 +1,158 @@
+{
+  "format": "flowtest-suite/v1",
+  "exported_at": "2026-09-10T00:00:00Z",
+  "project_id": "prj_flowtest_ai_verify",
+  "project_name": "FlowTest",
+  "suite": "ai-verify",
+  "environment_hint": "Example Org",
+  "tests": [
+    {
+      "id": "tst_ai_verify_golden",
+      "name": "Golden path: Example.org load + page truth",
+      "description": "Independent UI oracle for AI-change gates — Failure Truthfulness + invariant + intent table.",
+      "tags": ["ai-verify", "golden", "ui"],
+      "suite": "ai-verify",
+      "version": 1,
+      "steps": [
+        {
+          "id": "stp_ai_goto",
+          "type": "ui.goto",
+          "name": "Open example.org",
+          "config": {
+            "url": "{{BASE_URL}}",
+            "timeout_ms": 30000
+          },
+          "enabled": true,
+          "notes": "Human-owned golden path"
+        },
+        {
+          "id": "stp_ai_wait",
+          "type": "ui.wait",
+          "name": "Settle",
+          "config": { "ms": 400 },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_ai_title",
+          "type": "assert.title_contains",
+          "name": "Title contains Example",
+          "config": { "text": "Example" },
+          "enabled": true,
+          "notes": "Human oracle"
+        },
+        {
+          "id": "stp_ai_text",
+          "type": "assert.text_contains",
+          "name": "Body mentions Example Domain",
+          "config": {
+            "selector": "body",
+            "text": "Example Domain",
+            "timeout_ms": 15000,
+            "ignore_case": true
+          },
+          "enabled": true,
+          "notes": "Human oracle"
+        },
+        {
+          "id": "stp_ai_truth",
+          "type": "verify.page_truth",
+          "name": "Page Failure Truthfulness",
+          "config": {
+            "error_texts": "something went wrong\nunexpected error\nundefined\nnull is not\nfailed to load",
+            "require_min_text_len": 20,
+            "severity": "hard"
+          },
+          "enabled": true,
+          "notes": "Rejects empty-shell / soft error banners"
+        },
+        {
+          "id": "stp_ai_inv",
+          "type": "verify.invariant",
+          "name": "H1 present",
+          "config": {
+            "expression": "!!document.querySelector('h1')",
+            "severity": "hard",
+            "message": "Expected h1 landmark — page shell incomplete"
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_ai_intent",
+          "type": "verify.intent_table",
+          "name": "Intent table demo (string length)",
+          "config": {
+            "function_body": "return String(input).length;",
+            "cases_json": "[{\"input\":\"ab\",\"expect\":2},{\"input\":\"\",\"expect\":0},{\"input\":\"xyz\",\"expect\":3}]",
+            "severity": "hard"
+          },
+          "enabled": true,
+          "notes": "Template for catching intent inversion in pure logic"
+        }
+      ]
+    },
+    {
+      "id": "tst_ai_verify_api_truth",
+      "name": "API truthfulness: success must carry payload",
+      "description": "Blocks polite HTTP 200 with empty body — common AI soft-fail pattern.",
+      "tags": ["ai-verify", "api"],
+      "suite": "ai-verify",
+      "version": 1,
+      "steps": [
+        {
+          "id": "stp_ai_api",
+          "type": "api.request",
+          "name": "GET example.org",
+          "config": {
+            "method": "GET",
+            "url": "{{BASE_URL}}",
+            "headers": "{}",
+            "body": "",
+            "save_as": "last_response",
+            "timeout_ms": 30000
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_ai_api_status",
+          "type": "assert.api_status",
+          "name": "Status 200",
+          "config": {
+            "save_as": "last_response",
+            "status": 200
+          },
+          "enabled": true,
+          "notes": ""
+        },
+        {
+          "id": "stp_ai_api_truth",
+          "type": "verify.api_truthful",
+          "name": "Success body not empty",
+          "config": {
+            "save_as": "last_response",
+            "success_statuses": "200,201,204",
+            "require_field": "",
+            "forbid_field_equals": "",
+            "severity": "hard"
+          },
+          "enabled": true,
+          "notes": "Human-owned Failure Truthfulness check"
+        },
+        {
+          "id": "stp_ai_not_empty",
+          "type": "verify.not_empty",
+          "name": "Response text variable not empty",
+          "config": {
+            "variable": "last_response",
+            "json_path": "body",
+            "severity": "soft"
+          },
+          "enabled": true,
+          "notes": "Soft if HTML stored only under text"
+        }
+      ]
+    }
+  ]
+}

@@ -76,6 +76,16 @@ Every run writes Allure 2–compatible JSON + a self-contained HTML report under
 
 Suite CLI runs also emit a combined folder and include `allure_dir` / `report_html` in the summary JSON. Override with `--allure-dir`.
 
+### AI-generated code verification
+
+See [docs/AI_VERIFY.md](docs/AI_VERIFY.md). Short version:
+
+- Test Builder category **AI / Verify** (`verify.page_truth`, `verify.api_truthful`, `verify.intent_table`, …)
+- UI page **AI Verify** + CLI `python -m flowtest.cli verify-gate`
+- MCP: `verify_suite`, `scan_ai_diff`, `ai_verify_checklist`
+- Golden suite: `tests/flowtest/ai-verify/suite.json`
+- CI helpers: `scripts/ci_ai_verify_gate.sh` / `.ps1`
+
 
 ### Record locally (headed Playwright)
 

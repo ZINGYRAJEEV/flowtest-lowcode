@@ -26,6 +26,7 @@ STEP_CATEGORIES = {
     "desktop": "Desktop UI",
     "api": "REST API",
     "assert": "Assertions",
+    "verify": "AI / Verify",
     "data": "Data / ETL",
     "flow": "Flow Control",
     "util": "Utilities",
@@ -106,7 +107,7 @@ class StepResult:
     step_id: str
     step_name: str
     step_type: str
-    status: str  # PASS | FAIL | SKIP
+    status: str  # PASS | FAIL | SKIP | WARN
     detail: str = ""
     duration_ms: int = 0
     screenshot: str = ""

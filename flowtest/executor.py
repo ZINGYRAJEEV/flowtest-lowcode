@@ -655,6 +655,122 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
                 timeout_ms=int(cfg.get("timeout_ms") or 10000),
             )
 
+        elif stype == "verify.invariant":
+            if page is None:
+                raise RuntimeError("Browser not available")
+            expr = str(cfg.get("expression") or "").strip()
+            if not expr:
+                raise RuntimeError("Invariant expression is empty")
+            ok = page.evaluate(f"() => !!({expr})")
+            if not ok:
+                raise AssertionError(str(cfg.get("message") or "Invariant failed")[:400])
+            detail = f"Invariant OK: {expr[:120]}"
+
+        elif stype == "verify.page_truth":
+            if page is None:
+                raise RuntimeError("Browser not available")
+            raw = str(cfg.get("error_texts") or "")
+            phrases = [ln.strip().lower() for ln in raw.replace(",", "\n").splitlines() if ln.strip()]
+            min_len = int(cfg.get("require_min_text_len") or 0)
+            probe = page.evaluate(
+                """(phrases) => {
+                  const body = (document.body && document.body.innerText) || '';
+                  const lower = body.toLowerCase();
+                  const hits = [];
+                  for (const p of phrases || []) {
+                    if (p && lower.includes(p)) hits.push(p);
+                  }
+                  return { len: body.trim().length, hits, title: document.title || '' };
+                }""",
+                phrases,
+            )
+            hits = list((probe or {}).get("hits") or [])
+            length = int((probe or {}).get("len") or 0)
+            if min_len and length < min_len:
+                raise AssertionError(
+                    f"Page body too short ({length} < {min_len}) — possible empty-shell polite failure"
+                )
+            if hits:
+                raise AssertionError(
+                    f"Soft-error phrases visible on page: {hits[:5]} (Failure Truthfulness)"
+                )
+            detail = f"Page truth OK (len={length}, title={(probe or {}).get('title', '')[:60]})"
+
+        elif stype == "verify.not_empty":
+            var = str(cfg.get("variable") or "").strip()
+            if not var:
+                raise RuntimeError("variable is required")
+            value: Any = variables.get(var)
+            path = str(cfg.get("json_path") or "").strip()
+            if path:
+                for part in path.split("."):
+                    if value is None:
+                        break
+                    if isinstance(value, dict):
+                        value = value.get(part)
+                    else:
+                        value = None
+                        break
+            empty = value is None or value == "" or value == {} or value == []
+            if empty:
+                raise AssertionError(f"Expected non-empty value for {var}" + (f".{path}" if path else ""))
+            detail = f"{var} non-empty ({type(value).__name__})"
+
+        elif stype == "verify.api_truthful":
+            save_as = str(cfg.get("save_as") or "last_response")
+            resp = variables.get(save_as)
+            if not isinstance(resp, dict):
+                raise AssertionError(f"No API response in {save_as!r}")
+            status = int(resp.get("status") or 0)
+            success_raw = str(cfg.get("success_statuses") or "200,201,204")
+            success = {int(x.strip()) for x in success_raw.split(",") if x.strip().isdigit()}
+            body = resp.get("json")
+            if body is None:
+                body = resp.get("body")
+            if status in success:
+                if body is None or body == "" or body == {} or body == []:
+                    raise AssertionError(
+                        f"HTTP {status} with empty body — polite success / Failure Truthfulness risk"
+                    )
+                req = str(cfg.get("require_field") or "").strip()
+                if req:
+                    target = body if isinstance(body, dict) else {}
+                    if req not in target:
+                        raise AssertionError(f"Success response missing required field {req!r}")
+                forbid = str(cfg.get("forbid_field_equals") or "").strip()
+                if forbid and "=" in forbid and isinstance(body, dict):
+                    fk, fv = forbid.split("=", 1)
+                    if str(body.get(fk.strip())) == fv.strip():
+                        raise AssertionError(
+                            f"Forbidden success payload {fk.strip()}={fv.strip()} (soft failure signal)"
+                        )
+            detail = f"API truthful OK (status={status})"
+
+        elif stype == "verify.intent_table":
+            if page is None:
+                raise RuntimeError("Browser not available")
+            import json as _json
+
+            cases_raw = str(cfg.get("cases_json") or "[]")
+            try:
+                cases = _json.loads(cases_raw)
+            except Exception as exc:
+                raise RuntimeError(f"Invalid cases_json: {exc}") from exc
+            if not isinstance(cases, list) or not cases:
+                raise RuntimeError("cases_json must be a non-empty array")
+            fn_body = str(cfg.get("function_body") or "return input;")
+            script = f"(cases) => {{ const fn = (input) => {{ {fn_body} }}; return cases.map(c => {{ const got = fn(c.input); return {{ input: c.input, expect: c.expect, got, ok: String(got) === String(c.expect) }}; }}); }}"
+            rows = page.evaluate(script, cases)
+            bad = [r for r in (rows or []) if not r.get("ok")]
+            if bad:
+                sample = bad[0]
+                raise AssertionError(
+                    f"Intent table failed for input={sample.get('input')!r}: "
+                    f"expected {sample.get('expect')!r} got {sample.get('got')!r} "
+                    f"({len(bad)}/{len(rows)} rows)"
+                )
+            detail = f"Intent table OK ({len(rows)} cases)"
+
         else:
             raise RuntimeError(f"Unknown step type: {stype}")
 
@@ -670,6 +786,8 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
             extras=extras,
         )
     except Exception as exc:
+        severity = str((step.config or {}).get("severity") or "hard").strip().lower()
+        status = "WARN" if severity == "soft" else "FAIL"
         shot = ""
         if page is not None:
             try:
@@ -682,8 +800,8 @@ def _execute_step(step: TestStep, variables: dict[str, Any], page) -> StepResult
             step_id=step.id,
             step_name=step.name,
             step_type=step.type,
-            status="FAIL",
-            detail=str(exc)[:500],
+            status=status,
+            detail=(("SOFT: " if status == "WARN" else "") + str(exc))[:500],
             duration_ms=int((time.perf_counter() - t0) * 1000),
             screenshot=shot,
         )

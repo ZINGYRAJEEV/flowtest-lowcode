@@ -1541,6 +1541,151 @@ That command reads **steps from the JSON file in Git**, not from `flowtest_data/
             )
 
 
+def page_ai_verify():
+    page_header(
+        "AI Verify",
+        "Gate AI-generated changes: golden paths, Failure Truthfulness, soft-fail scan, reports.",
+        "Quality",
+    )
+    from flowtest.ai_verify import (
+        AGENT_VERIFY_INSTRUCTIONS,
+        DEFAULT_GOLDEN_SUITE,
+        run_verify_gate,
+        scan_text_for_soft_fails,
+        verification_checklist,
+        write_gate_artifact,
+    )
+    from flowtest.suite_io import load_suite_file, suite_file_to_test_cases
+
+    st.markdown("#### Human checklist (anti generative ratification)")
+    for item in verification_checklist():
+        st.checkbox(f"**{item['title']}** — {item['detail']}", key=f"ai_chk_{item['id']}")
+    with st.expander("Agent instructions", expanded=False):
+        st.code(AGENT_VERIFY_INSTRUCTIONS)
+
+    st.markdown("#### Soft-fail scan (diff or snippet)")
+    diff_blob = st.text_area(
+        "Paste a git diff or suspicious code",
+        height=140,
+        placeholder="except Exception:\n    return {}",
+        key="ai_diff_blob",
+    )
+    if st.button("Scan for polite failures", key="btn_scan_soft"):
+        findings = scan_text_for_soft_fails(diff_blob or "", source="ui-paste")
+        if not findings:
+            st.success("No heuristic soft-fail patterns matched.")
+        else:
+            st.warning(f"{len(findings)} finding(s)")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Code": f["code"],
+                            "Line": f["line"],
+                            "Message": f["message"],
+                            "Snippet": f["snippet"],
+                        }
+                        for f in findings
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    st.markdown("#### Run verification gate")
+    envs = list_environments()
+    if not envs:
+        st.warning("Create an environment first (e.g. Example Org → https://example.org).")
+        return
+    default_env = next((e for e in envs if e.name == "Example Org"), envs[0])
+    c1, c2, c3 = st.columns(3)
+    suite_path = c1.text_input(
+        "Suite JSON path",
+        value=str(DEFAULT_GOLDEN_SUITE),
+        key="ai_suite_path",
+    )
+    env = c2.selectbox(
+        "Environment",
+        envs,
+        index=envs.index(default_env),
+        format_func=lambda e: f"{e.name} ({e.base_url})",
+        key="ai_verify_env",
+    )
+    workers = int(c3.number_input("Workers", min_value=1, max_value=8, value=1, key="ai_workers"))
+
+    if st.button("Run AI verify gate", type="primary", key="btn_ai_gate"):
+        from pathlib import Path
+
+        path = Path(suite_path)
+        if not path.is_file():
+            st.error(f"Suite not found: {path}")
+        else:
+            data = load_suite_file(path)
+            tests = suite_file_to_test_cases(data)
+            with st.spinner("Running golden-path verification…"):
+                verdict = run_verify_gate(
+                    tests,
+                    env,
+                    workers=workers,
+                    headed=False,
+                    continue_on_fail=True,
+                    diff_text=diff_blob or "",
+                    triggered_by=st.session_state.user.username,
+                    trigger="ui-ai-verify",
+                )
+            artifact = write_gate_artifact(verdict)
+            st.session_state.last_ai_verdict = verdict
+            st.session_state.last_ai_artifact = str(artifact)
+            add_audit(
+                st.session_state.user.username,
+                "ai_verify_gate",
+                "suite",
+                str(data.get("suite") or path.name),
+                verdict.get("gate", ""),
+            )
+            st.rerun()
+
+    if st.session_state.get("last_ai_verdict"):
+        v = st.session_state.last_ai_verdict
+        gate = v.get("gate")
+        if gate == "PASS":
+            st.success(f"Gate **{gate}** — ok to merge (still complete the checklist).")
+        elif gate == "PASS_WITH_WARNINGS":
+            st.warning(f"Gate **{gate}** — review soft-fail findings before merge.")
+        else:
+            st.error(f"Gate **{gate}** — block merge until golden path is green.")
+        st.json(
+            {
+                "gate": gate,
+                "ok_to_merge": v.get("ok_to_merge"),
+                "soft_fail_count": v.get("soft_fail_count"),
+                "report_html": v.get("report_html"),
+                "allure_dir": v.get("allure_dir"),
+                "artifact": st.session_state.get("last_ai_artifact"),
+            }
+        )
+        suite = v.get("suite") or {}
+        results = suite.get("results") if isinstance(suite, dict) else None
+        if results:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Test": r.get("test_name"),
+                            "Status": r.get("status"),
+                            "ms": r.get("duration_ms"),
+                            "Run": r.get("run_id"),
+                        }
+                        for r in results
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    st.caption("Docs: docs/AI_VERIFY.md · CLI: python -m flowtest.cli verify-gate")
+
+
 def page_monkey():
     """Optional exploratory monkey tool (kept from earlier work)."""
     page_header(
@@ -1672,6 +1817,7 @@ with st.sidebar:
         "Environments",
         "Runs & Reports",
         "CI / Pipelines",
+        "AI Verify",
         "Monkey Explorer",
     ]
     page = st.radio("Navigate", pages, label_visibility="collapsed")
@@ -1688,5 +1834,7 @@ elif page == "Runs & Reports":
     page_runs()
 elif page == "CI / Pipelines":
     page_ci_pipelines()
+elif page == "AI Verify":
+    page_ai_verify()
 elif page == "Monkey Explorer":
     page_monkey()

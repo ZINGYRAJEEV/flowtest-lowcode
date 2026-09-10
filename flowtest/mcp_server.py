@@ -34,7 +34,9 @@ def build_server():
             "FlowTest is a low-code web/API/desktop test automation tool. "
             "Use these tools to list projects/tests, inspect steps, run tests, "
             "import Chrome-extension recordings, export suites, and (on local Windows) "
-            "interact with desktop application windows via UI Automation."
+            "interact with desktop application windows via UI Automation. "
+            "When verifying AI-generated application code, call verify_suite (and optionally "
+            "scan_ai_diff) before claiming the change works — do not rely on skimming the diff alone."
         ),
     )
 
@@ -210,6 +212,55 @@ def build_server():
     def desktop_screenshot(label: str = "desktop") -> str:
         """Capture a full desktop screenshot to FlowTest artifacts."""
         return _json(mcp_api.tool_desktop_screenshot(label=label))
+
+    @mcp.tool()
+    def ai_verify_checklist() -> str:
+        """
+        Return the human-in-the-loop checklist and agent instructions for
+        verifying AI-generated code (anti generative-ratification).
+        """
+        return _json(mcp_api.tool_ai_verify_checklist())
+
+    @mcp.tool()
+    def scan_ai_diff(diff_text: str = "", paths_csv: str = "") -> str:
+        """
+        Scan a git diff (or comma-separated file paths) for polite-failure
+        patterns: bare except swallow, empty success returns, etc.
+        """
+        paths = [p.strip() for p in (paths_csv or "").split(",") if p.strip()]
+        return _json(mcp_api.tool_scan_ai_diff(diff_text=diff_text, paths=paths or None))
+
+    @mcp.tool()
+    def verify_suite(
+        path: str = "",
+        suite: str = "",
+        project_name: str = "",
+        env_name: str = "",
+        workers: int = 1,
+        headed: bool = False,
+        continue_on_fail: bool = True,
+        diff_text: str = "",
+        paths_csv: str = "",
+    ) -> str:
+        """
+        Run a golden-path FlowTest suite as an AI verification gate (browser/API).
+        Prefer path to suite.json. Returns gate PASS | PASS_WITH_WARNINGS | FAIL
+        plus Allure report paths. Coding agents should call this before claiming done.
+        """
+        paths = [p.strip() for p in (paths_csv or "").split(",") if p.strip()]
+        return _json(
+            mcp_api.tool_verify_suite(
+                path=path,
+                suite=suite,
+                project_name=project_name,
+                env_name=env_name or None,
+                workers=workers,
+                headed=headed,
+                continue_on_fail=continue_on_fail,
+                diff_text=diff_text,
+                scan_paths=paths or None,
+            )
+        )
 
     return mcp
 

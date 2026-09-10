@@ -56,6 +56,9 @@ If `cwd` resolution fails on your Cursor version, set an absolute path:
 | `desktop_focus_window` | Bring app window to front |
 | `desktop_click` / `desktop_type_text` / `desktop_send_keys` | Drive desktop UI |
 | `desktop_screenshot` | Full-screen capture to artifacts |
+| `ai_verify_checklist` | Human/agent checklist for AI code verification |
+| `scan_ai_diff` | Heuristic polite-failure scan on diff/files |
+| `verify_suite` | Golden-path gate (suite run + soft-fail scan + report) |
 
 Desktop tools need:
 
@@ -74,3 +77,5 @@ pip install -r requirements-desktop.txt
 - “Export suite Smoke for Git”
 - “List desktop windows and focus Notepad”
 - “Type Hello into Notepad and take a desktop screenshot”
+- “After my AI code change, run verify_suite on tests/flowtest/ai-verify/suite.json and report the gate”
+- “Scan this diff for polite-failure patterns with scan_ai_diff”
